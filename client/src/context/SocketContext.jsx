@@ -1,127 +1,224 @@
-// client/src/context/SocketContext.jsx
 import React, { createContext, useState, useEffect, useMemo } from 'react';
-import { io } from 'socket.io-client';
+import { collection, doc, onSnapshot, setDoc, updateDoc, arrayUnion, Timestamp, query, where, orderBy } from 'firebase/firestore';
+import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth.jsx';
 
-// Create context with complete default values
-export const SocketContext = createContext({
-  socket: null,
-  connected: false,
-  EVENTS: {
-    JOIN_LEAGUE: 'join_league',
-    LEAVE_LEAGUE: 'leave_league',
-    SEND_MESSAGE: 'send_message',
-    CHAT_MESSAGE: 'chat_message',
-    CHEF_UPDATE: 'chef_update',
-    LEAGUE_UPDATE: 'league_update',
-    USER_TYPING: 'user_typing',
-    USER_JOINED: 'user_joined',
-    USER_LEFT: 'user_left',
-    SCORE_UPDATE: 'score_update'
-  },
-  joinLeague: (leagueId) => {},
-  leaveLeague: (leagueId) => {},
-  sendMessage: (message) => {},
-  sendTyping: (leagueId) => {}
+// Create context with default values
+export const ChatContext = createContext({
+  messages: [],
+  loading: false,
+  error: null,
+  sendMessage: () => {},
+  joinLeague: () => {},
+  leaveLeague: () => {},
+  typingUsers: [],
+  sendTypingIndicator: () => {}
 });
 
-export function SocketProvider({ children }) {
-  const [socket, setSocket] = useState(null);
-  const [connected, setConnected] = useState(false);
-  const { isAuthenticated = false, user = null } = useAuth();
+export function ChatProvider({ children }) {
+  const [messages, setMessages] = useState([]);
+  const [currentLeagueId, setCurrentLeagueId] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [typingUsers, setTypingUsers] = useState([]);
+  const [messageListeners, setMessageListeners] = useState({});
+  const [typingListeners, setTypingListeners] = useState({});
+  
+  const { user, isAuthenticated } = useAuth();
 
-  // Socket event constants - moved outside component for performance
-  const EVENTS = {
-    JOIN_LEAGUE: 'join_league',
-    LEAVE_LEAGUE: 'leave_league',
-    SEND_MESSAGE: 'send_message',
-    CHAT_MESSAGE: 'chat_message',
-    CHEF_UPDATE: 'chef_update',
-    LEAGUE_UPDATE: 'league_update',
-    USER_TYPING: 'user_typing',
-    USER_JOINED: 'user_joined',
-    USER_LEFT: 'user_left',
-    SCORE_UPDATE: 'score_update'
-  };
-
-  useEffect(() => {
-    let socketInstance = null;
-
-    if (isAuthenticated && user) {
-      const token = localStorage.getItem('token');
-      
-      // Create socket connection
-      socketInstance = io(import.meta.env.VITE_SOCKET_URL, {
-        auth: { token },
-        transports: ['websocket'],
-        reconnection: true
-      });
-      
-      // Socket events
-      socketInstance.on('connect', () => {
-        console.log('Socket connected');
-        setConnected(true);
-      });
-      
-      socketInstance.on('disconnect', () => {
-        console.log('Socket disconnected');
-        setConnected(false);
-      });
-      
-      socketInstance.on('connect_error', (err) => {
-        console.error('Socket connection error:', err.message);
-        setConnected(false);
-      });
-      
-      setSocket(socketInstance);
-    }
-    
-    // Cleanup function
-    return () => {
-      if (socketInstance) {
-        socketInstance.disconnect();
-        setSocket(null);
-        setConnected(false);
-      }
-    };
-  }, [isAuthenticated, user]);
-
-  // Methods with proper parameter types
+  // Join a league chat
   const joinLeague = (leagueId) => {
-    if (socket && connected && leagueId) {
-      socket.emit(EVENTS.JOIN_LEAGUE, { leagueId });
+    if (leagueId && isAuthenticated) {
+      setCurrentLeagueId(leagueId);
+      fetchMessages(leagueId);
+      listenForTyping(leagueId);
     }
   };
 
+  // Leave a league chat
   const leaveLeague = (leagueId) => {
-    if (socket && connected && leagueId) {
-      socket.emit(EVENTS.LEAVE_LEAGUE, { leagueId });
+    if (leagueId && messageListeners[leagueId]) {
+      messageListeners[leagueId]();
+      typingListeners[leagueId]?.();
+      
+      setMessageListeners(prev => {
+        const updated = {...prev};
+        delete updated[leagueId];
+        return updated;
+      });
+      
+      setTypingListeners(prev => {
+        const updated = {...prev};
+        delete updated[leagueId];
+        return updated;
+      });
+      
+      setCurrentLeagueId(null);
+      setMessages([]);
+      setTypingUsers([]);
     }
   };
 
-  const sendMessage = (message) => {
-    if (socket && connected && message) {
-      socket.emit(EVENTS.SEND_MESSAGE, message);
+  // Fetch messages for a league
+  const fetchMessages = (leagueId) => {
+    setLoading(true);
+    
+    // Create a query for messages
+    const messagesQuery = query(
+      collection(db, 'messages'),
+      where('league', '==', leagueId),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
+    
+    // Listen for real-time updates
+    const unsubscribe = onSnapshot(
+      messagesQuery,
+      (snapshot) => {
+        const messageList = snapshot.docs.map(doc => ({
+          _id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate().toISOString() || new Date().toISOString()
+        })).reverse(); // To match the previous behavior
+        
+        setMessages(messageList);
+        setLoading(false);
+        setError(null);
+      },
+      (err) => {
+        console.error('Error fetching messages:', err);
+        setError('Failed to load chat history');
+        setLoading(false);
+      }
+    );
+    
+    // Store the unsubscribe function
+    setMessageListeners(prev => ({
+      ...prev,
+      [leagueId]: unsubscribe
+    }));
+  };
+
+  // Listen for typing indicators
+  const listenForTyping = (leagueId) => {
+    const typingRef = collection(db, 'typing');
+    const typingQuery = query(
+      typingRef,
+      where('leagueId', '==', leagueId)
+    );
+    
+    const unsubscribe = onSnapshot(
+      typingQuery,
+      (snapshot) => {
+        const now = new Date();
+        const activeTypers = snapshot.docs
+          .map(doc => doc.data())
+          .filter(data => {
+            // Only show typing indicators for the last 3 seconds
+            const timestamp = data.timestamp?.toDate() || new Date(0);
+            const timeDiff = (now - timestamp) / 1000;
+            return timeDiff <= 3 && data.userId !== user?._id;
+          })
+          .map(data => ({
+            userId: data.userId,
+            username: data.username
+          }));
+        
+        setTypingUsers(activeTypers);
+      },
+      (err) => {
+        console.error('Error listening for typing:', err);
+      }
+    );
+    
+    setTypingListeners(prev => ({
+      ...prev,
+      [leagueId]: unsubscribe
+    }));
+  };
+
+  // Send a message
+  const sendMessage = async (content, type = 'text') => {
+    if (!content || !currentLeagueId || !user) return;
+    
+    try {
+      const newMessage = {
+        league: currentLeagueId,
+        sender: user._id,
+        senderName: user.name,
+        content,
+        type,
+        reactions: {
+          likes: [],
+          hearts: []
+        },
+        readBy: [user._id],
+        createdAt: Timestamp.now()
+      };
+      
+      // Add message to Firestore
+      await setDoc(doc(collection(db, 'messages')), newMessage);
+      
+    } catch (err) {
+      console.error('Error sending message:', err);
+      setError('Failed to send message');
     }
   };
 
-  const sendTyping = (leagueId) => {
-    if (socket && connected && leagueId) {
-      socket.emit(EVENTS.USER_TYPING, { leagueId });
+  // Send typing indicator
+  const sendTypingIndicator = async () => {
+    if (!currentLeagueId || !user) return;
+    
+    try {
+      const typingId = `${currentLeagueId}_${user._id}`;
+      const typingRef = doc(db, 'typing', typingId);
+      
+      await setDoc(typingRef, {
+        leagueId: currentLeagueId,
+        userId: user._id,
+        username: user.name,
+        timestamp: Timestamp.now()
+      });
+      
+    } catch (err) {
+      console.error('Error sending typing indicator:', err);
     }
   };
 
-  // Memoize context value to prevent unnecessary re-renders
+  // Clean up listeners on unmount
+  useEffect(() => {
+    return () => {
+      // Clean up all message listeners
+      Object.values(messageListeners).forEach(unsubscribe => {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      });
+      
+      // Clean up all typing listeners
+      Object.values(typingListeners).forEach(unsubscribe => {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      });
+    };
+  }, [messageListeners, typingListeners]);
+
+  // Memoize context value
   const contextValue = useMemo(() => ({
-    socket,
-    connected,
-    EVENTS,
+    messages,
+    loading,
+    error,
     joinLeague,
     leaveLeague,
     sendMessage,
-    sendTyping
-  }), [socket, connected]);
+    typingUsers,
+    sendTypingIndicator
+  }), [messages, loading, error, typingUsers]);
 
-  // Using React 19 Context syntax
-  return <SocketContext value={contextValue}>{children}</SocketContext>;
+  return (
+    <ChatContext value={contextValue}>
+      {children}
+    </ChatContext>
+  );
 }

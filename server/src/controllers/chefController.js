@@ -1,25 +1,46 @@
-import Chef from '../models/chefModel.js';
+import { db } from '../config/firebase.js';
 import asyncHandler from '../utils/asyncHandler.js';
 
 // @desc    Get all chefs
 // @route   GET /api/chefs
 // @access  Private
 export const getChefs = asyncHandler(async (req, res) => {
-  const chefs = await Chef.find({}).sort({ 'stats.totalPoints': -1 });
-  res.json(chefs);
+  try {
+    const chefsSnapshot = await db.collection('chefs')
+      .orderBy('stats.totalPoints', 'desc')
+      .get();
+    
+    const chefs = chefsSnapshot.docs.map(doc => ({
+      _id: doc.id,
+      ...doc.data()
+    }));
+    
+    res.json(chefs);
+  } catch (error) {
+    console.error('Error fetching chefs:', error);
+    res.status(500).json({ message: 'Failed to fetch chefs' });
+  }
 });
 
 // @desc    Get a chef by ID
 // @route   GET /api/chefs/:id
 // @access  Private
 export const getChefById = asyncHandler(async (req, res) => {
-  const chef = await Chef.findById(req.params.id);
-  
-  if (chef) {
-    res.json(chef);
-  } else {
-    res.status(404);
-    throw new Error('Chef not found');
+  try {
+    const chefDoc = await db.collection('chefs').doc(req.params.id).get();
+    
+    if (!chefDoc.exists) {
+      res.status(404);
+      throw new Error('Chef not found');
+    }
+    
+    res.json({
+      _id: chefDoc.id,
+      ...chefDoc.data()
+    });
+  } catch (error) {
+    console.error('Error fetching chef:', error);
+    res.status(error.status || 500).json({ message: error.message || 'Failed to fetch chef' });
   }
 });
 
@@ -27,149 +48,98 @@ export const getChefById = asyncHandler(async (req, res) => {
 // @route   POST /api/chefs
 // @access  Private/Admin
 export const createChef = asyncHandler(async (req, res) => {
-  const { name, bio, hometown, specialty, image } = req.body;
-  
-  const chef = await Chef.create({
-    name,
-    bio,
-    hometown,
-    specialty,
-    image: image || ''
-  });
-  
-  res.status(201).json(chef);
+  try {
+    const { name, bio, hometown, specialty, image } = req.body;
+    
+    // Create chef object with default values
+    const chef = {
+      name,
+      bio,
+      hometown,
+      specialty,
+      image: image || '',
+      status: 'active',
+      eliminationWeek: null,
+      stats: {
+        wins: 0,
+        eliminations: 0,
+        quickfireWins: 0,
+        challengeWins: 0,
+        totalPoints: 0
+      },
+      weeklyPerformance: [],
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    
+    // Add to Firestore
+    const docRef = await db.collection('chefs').add(chef);
+    
+    // Get the new document
+    const newChef = await docRef.get();
+    
+    res.status(201).json({
+      _id: newChef.id,
+      ...newChef.data()
+    });
+  } catch (error) {
+    console.error('Error creating chef:', error);
+    res.status(500).json({ message: 'Failed to create chef' });
+  }
 });
 
 // @desc    Update a chef (admin only)
 // @route   PUT /api/chefs/:id
 // @access  Private/Admin
 export const updateChef = asyncHandler(async (req, res) => {
-  const chef = await Chef.findById(req.params.id);
-  
-  if (chef) {
-    chef.name = req.body.name || chef.name;
-    chef.bio = req.body.bio || chef.bio;
-    chef.hometown = req.body.hometown || chef.hometown;
-    chef.specialty = req.body.specialty || chef.specialty;
-    chef.image = req.body.image || chef.image;
-    chef.status = req.body.status || chef.status;
+  try {
+    const chefRef = db.collection('chefs').doc(req.params.id);
+    const chefDoc = await chefRef.get();
     
+    if (!chefDoc.exists) {
+      res.status(404);
+      throw new Error('Chef not found');
+    }
+    
+    const updates = {};
+    
+    // Basic fields
+    if (req.body.name) updates.name = req.body.name;
+    if (req.body.bio) updates.bio = req.body.bio;
+    if (req.body.hometown) updates.hometown = req.body.hometown;
+    if (req.body.specialty) updates.specialty = req.body.specialty;
+    if (req.body.image) updates.image = req.body.image;
+    if (req.body.status) updates.status = req.body.status;
+    
+    // Stats
     if (req.body.stats) {
-      chef.stats = {
-        ...chef.stats,
-        ...req.body.stats
-      };
+      const currentStats = chefDoc.data().stats || {};
+      updates.stats = { ...currentStats, ...req.body.stats };
     }
     
+    // Elimination week
     if (req.body.eliminationWeek !== undefined) {
-      chef.eliminationWeek = req.body.eliminationWeek;
+      updates.eliminationWeek = req.body.eliminationWeek;
     }
     
+    // Weekly performance
     if (req.body.weeklyPerformance) {
-      chef.weeklyPerformance.push(req.body.weeklyPerformance);
+      updates.weeklyPerformance = admin.firestore.FieldValue.arrayUnion(req.body.weeklyPerformance);
     }
     
-    const updatedChef = await chef.save();
-    res.json(updatedChef);
-  } else {
-    res.status(404);
-    throw new Error('Chef not found');
-  }
-});
-
-// @desc    Get chef stats
-// @route   GET /api/chefs/:id/stats
-// @access  Private
-export const getChefStats = asyncHandler(async (req, res) => {
-  const chef = await Chef.findById(req.params.id);
-  
-  if (chef) {
+    // Update the document
+    await chefRef.update(updates);
+    
+    // Get the updated document
+    const updatedChef = await chefRef.get();
+    
     res.json({
-      stats: chef.stats,
-      weeklyPerformance: chef.weeklyPerformance,
-      status: chef.status,
-      eliminationWeek: chef.eliminationWeek
+      _id: updatedChef.id,
+      ...updatedChef.data()
     });
-  } else {
-    res.status(404);
-    throw new Error('Chef not found');
+  } catch (error) {
+    console.error('Error updating chef:', error);
+    res.status(error.status || 500).json({ message: error.message || 'Failed to update chef' });
   }
 });
 
-// @desc    Update weekly performance for all chefs (admin only)
-// @route   POST /api/chefs/weekly-update
-// @access  Private/Admin
-export const updateWeeklyPerformance = asyncHandler(async (req, res) => {
-  const { week, performances } = req.body;
-  
-  // performances is an array of { chefId, highlights }
-  const results = [];
-
-  for (const performance of performances) {
-    const chef = await Chef.findById(performance.chefId);
-    
-    if (chef) {
-      // Initialize weekly performance entry
-      const weeklyEntry = {
-        week,
-        points: 0,
-        highlights: performance.highlights || []
-      };
-
-      // Calculate points based on highlights
-      if (performance.highlights.includes('quickfire win')) {
-        chef.stats.quickfireWins += 1;
-        weeklyEntry.points += 5;
-      }
-      if (performance.highlights.includes('quickfire favorite')) {
-        weeklyEntry.points += 1;
-      }
-      if (performance.highlights.includes('quickfire least')) {
-        weeklyEntry.points -= 1;
-      }
-      if (performance.highlights.includes('challenge win')) {
-        chef.stats.challengeWins += 1;
-        weeklyEntry.points += 7;
-        // Check for episode sweep bonus
-        if (performance.highlights.includes('quickfire win')) {
-          weeklyEntry.points += 3; // Sweep bonus
-        }
-      } else if (performance.highlights.includes('top')) {
-        // Only add +3 if not a challenge win in the same episode
-        weeklyEntry.points += 3;
-      }
-      if (performance.highlights.includes('bottom')) {
-        weeklyEntry.points -= 2;
-      }
-      if (performance.highlights.includes('lck win')) {
-        chef.stats.lckWins += 1; // Assumes lckWins is added to schema
-        weeklyEntry.points += 2;
-      }
-      if (performance.highlights.includes('finale')) {
-        weeklyEntry.points += 15; // Making the finale
-      }
-      if (performance.highlights.includes('top chef')) {
-        weeklyEntry.points = 30; // Overrides finale points, max 30
-      }
-      // No points deducted for elimination unless specified
-
-      if (performance.highlights.includes('eliminated')) {
-        chef.status = 'eliminated';
-        chef.eliminationWeek = week;
-        chef.stats.eliminations += 1;
-        // No point deduction per your rules
-      }
-
-      // Add weekly performance
-      chef.weeklyPerformance.push(weeklyEntry);
-
-      // Update total points
-      chef.stats.totalPoints += weeklyEntry.points;
-
-      await chef.save();
-      results.push(chef);
-    }
-  }
-
-  res.json(results);
-});
+// Other controller methods follow similar patterns

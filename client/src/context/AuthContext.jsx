@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useMemo, useCallback } from 'react';
-import api from '../services/api.js';
-
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../config/firebase';
+import AuthService from '../services/authService';
 
 export const AuthContext = createContext({
   user: null,
@@ -20,54 +21,46 @@ export const AuthProvider = ({ children = null }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Check if user is already logged in (from localStorage token)
+  // Monitor auth state
   useEffect(() => {
     let isMounted = true;
-    const checkAuth = async () => {
-      console.group('AUTH CHECK');
-      console.log('Starting auth check');
-      try {
-        const token = localStorage.getItem('token');
-        console.log('Token exists:', !!token);
-        
-        if (token) {
-          // Set auth header
-          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          console.log('Set auth header');
-          
-          // Get user profile
-          console.log('Fetching user profile...');
-          const response = await api.get('/auth/profile');
-          console.log('Profile response:', response.data);
+    
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.group('AUTH STATE CHANGE');
+      
+      if (firebaseUser && isMounted) {
+        try {
+          // Get user profile from Firestore
+          const userData = await AuthService.getCurrentUser();
           
           if (isMounted) {
-            setUser(response.data);
+            setUser(userData);
             setIsAuthenticated(true);
           }
-        } else {
-          console.log('No token found');
+        } catch (error) {
+          console.error('Error fetching user profile:', error);
+          if (isMounted) {
+            setError('Failed to load user profile');
+          }
         }
-      } catch (error) {
-        console.error('Authentication error:', error);
-        console.error('Error details:', error.response?.data ?? error.message ?? 'Unknown error');
-        localStorage.removeItem('token');
+      } else {
         if (isMounted) {
-          setError('Session expired. Please log in again.');
+          setUser(null);
+          setIsAuthenticated(false);
         }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-        console.log('Auth check complete');
-        console.groupEnd();
       }
-    };
+      
+      if (isMounted) {
+        setLoading(false);
+      }
+      
+      console.log('Auth state updated:', !!firebaseUser);
+      console.groupEnd();
+    });
     
-    checkAuth();
-    
-    // Cleanup function to prevent state updates after unmount
     return () => {
       isMounted = false;
+      unsubscribe();
     };
   }, []);
 
@@ -76,27 +69,15 @@ export const AuthProvider = ({ children = null }) => {
     try {
       setLoading(true);
       setError(null);
-      console.log('Login attempt with:', email);
       
-      const response = await api.post('/auth/login', { email, password });
-      console.log('Login response received');
-      const { token, ...userData } = response.data;
-      
-      // Set token in localStorage
-      localStorage.setItem('token', token);
-      console.log('Token stored in localStorage');
-      
-      // Set auth header
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
+      const userData = await AuthService.login(email, password);
       setUser(userData);
       setIsAuthenticated(true);
       
       return userData;
     } catch (error) {
       console.error('Login error:', error);
-      console.error('Error response:', error.response?.data ?? 'No response data');
-      setError(error.response?.data?.message ?? 'Login failed');
+      setError(error.message || 'Login failed');
       throw error;
     } finally {
       setLoading(false);
@@ -104,11 +85,15 @@ export const AuthProvider = ({ children = null }) => {
   }, []);
 
   // Logout function
-  const logout = useCallback(() => {
-    localStorage.removeItem('token');
-    delete api.defaults.headers.common['Authorization'];
-    setUser(null);
-    setIsAuthenticated(false);
+  const logout = useCallback(async () => {
+    try {
+      await AuthService.logout();
+      setUser(null);
+      setIsAuthenticated(false);
+    } catch (error) {
+      console.error('Logout error:', error);
+      setError(error.message || 'Logout failed');
+    }
   }, []);
 
   // Register function
@@ -117,22 +102,14 @@ export const AuthProvider = ({ children = null }) => {
       setLoading(true);
       setError(null);
       
-      const response = await api.post('/auth/register', userData);
-      const { token, ...newUser } = response.data;
-      
-      // Set token in localStorage
-      localStorage.setItem('token', token);
-      
-      // Set auth header
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
+      const newUser = await AuthService.register(userData);
       setUser(newUser);
       setIsAuthenticated(true);
       
       return newUser;
     } catch (error) {
       console.error('Registration error:', error);
-      setError(error.response?.data?.message ?? 'Registration failed');
+      setError(error.message || 'Registration failed');
       throw error;
     } finally {
       setLoading(false);
@@ -145,20 +122,20 @@ export const AuthProvider = ({ children = null }) => {
       setLoading(true);
       setError(null);
       
-      const response = await api.put('/auth/profile', userData);
-      setUser(prevUser => ({...prevUser, ...response.data}));
+      const updatedUser = await AuthService.updateProfile(userData);
+      setUser(prev => ({...prev, ...updatedUser}));
       
-      return response.data;
+      return updatedUser;
     } catch (error) {
       console.error('Profile update error:', error);
-      setError(error.response?.data?.message ?? 'Profile update failed');
+      setError(error.message || 'Profile update failed');
       throw error;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Memoize context value to prevent unnecessary re-renders
+  // Memoize context value
   const contextValue = useMemo(() => ({
     user,
     isAuthenticated,
@@ -172,8 +149,8 @@ export const AuthProvider = ({ children = null }) => {
   }), [user, isAuthenticated, loading, error, login, logout, register, updateProfile]);
 
   return (
-    <AuthContext.Provider value={contextValue}>
+    <AuthContext value={contextValue}>
       {children}
-    </AuthContext.Provider>
+    </AuthContext>
   );
 };

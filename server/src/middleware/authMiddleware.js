@@ -1,8 +1,7 @@
-import jwt from 'jsonwebtoken';
+import { auth } from '../config/firebase.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import User from '../models/userModel.js';
 
-// Protect routes
+// Protect routes - verify Firebase token
 export const protect = asyncHandler(async (req, res, next) => {
   let token;
   
@@ -12,15 +11,18 @@ export const protect = asyncHandler(async (req, res, next) => {
       // Get token from header
       token = req.headers.authorization.split(' ')[1];
       
-      // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      // Verify token with Firebase Admin
+      const decodedToken = await auth.verifyIdToken(token);
       
-      // Get user from the token
-      req.user = await User.findById(decoded.id).select('-password');
+      // Add user info to request
+      req.user = {
+        _id: decodedToken.uid,
+        email: decodedToken.email
+      };
       
       next();
     } catch (error) {
-      console.error(error);
+      console.error('Auth middleware error:', error);
       res.status(401);
       throw new Error('Not authorized, token failed');
     }
@@ -33,11 +35,20 @@ export const protect = asyncHandler(async (req, res, next) => {
 });
 
 // Admin middleware
-export const admin = (req, res, next) => {
-  if (req.user && req.user.isAdmin) {
-    next();
-  } else {
+export const admin = asyncHandler(async (req, res, next) => {
+  try {
+    // Get user from Firestore
+    const userDoc = await db.collection('users').doc(req.user._id).get();
+    
+    if (userDoc.exists && userDoc.data().isAdmin) {
+      next();
+    } else {
+      res.status(401);
+      throw new Error('Not authorized as an admin');
+    }
+  } catch (error) {
+    console.error('Admin middleware error:', error);
     res.status(401);
     throw new Error('Not authorized as an admin');
   }
-};
+});
