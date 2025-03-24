@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+// client/src/pages/Settings.jsx (partial update)
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { useTheme } from '../hooks/useTheme.jsx';
 import { useLeague } from '../hooks/useLeague.jsx';
+import UserService from '../services/userService.js';
 import Card from '../components/ui/Card.jsx';
 import Input from '../components/ui/Input.jsx';
 import Button from '../components/ui/Button.jsx';
-import api from '../services/api.js';
 
 const Settings = () => {
   const { user, updateProfile, error: authError, loading } = useAuth();
@@ -52,13 +53,15 @@ const Settings = () => {
     }
 
     try {
-      await updateProfile({
+      // Use the UserService directly
+      await UserService.updateUserProfile({
         name: formData.name,
         email: formData.email,
       });
       setFormSuccess('Profile updated successfully');
     } catch (err) {
-      setFormError(err.response?.data?.message || 'Failed to update profile');
+      console.error('Profile update error:', err);
+      setFormError(err.message || 'Failed to update profile');
     }
   };
 
