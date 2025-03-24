@@ -3,7 +3,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import AuthService from '../services/authService';
 
-export const AuthContext = createContext({
+export const AuthContext = React.createContext({
   user: null,
   isAuthenticated: false,
   loading: true,
@@ -15,7 +15,8 @@ export const AuthContext = createContext({
   setError: () => {}
 });
 
-export const AuthProvider = ({ children = null }) => {
+export function AuthProvider({ children }) {
+  // States with proper initialization
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -136,21 +137,18 @@ export const AuthProvider = ({ children = null }) => {
   }, []);
 
   // Memoize context value
-  const contextValue = useMemo(() => ({
-    user,
-    isAuthenticated,
-    loading,
-    error,
-    login,
-    logout,
-    register,
-    updateProfile,
-    setError: (message) => setError(message)
-  }), [user, isAuthenticated, loading, error, login, logout, register, updateProfile]);
+ // Memoize value to prevent unnecessary re-renders
+ const value = useMemo(() => ({
+  user,
+  isAuthenticated,
+  loading,
+  error,
+  login,
+  logout,
+  register,
+  updateProfile,
+  setError: (message) => setError(message)
+}), [user, isAuthenticated, loading, error, login, logout, register, updateProfile]);
 
-  return (
-    <AuthContext value={contextValue}>
-      {children}
-    </AuthContext>
-  );
-};
+return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
