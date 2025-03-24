@@ -1,30 +1,40 @@
+// client/src/services/authService.js
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   signOut,
   updateProfile as firebaseUpdateProfile,
-  signInWithCustomToken
+  signInWithCustomToken,
+  getIdToken
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
-import api from './api';
+import { auth, db } from '../config/firebase.js'; // Adjusted path if needed
+import api from './api.js';
+
+// Named export for token retrieval
+export const getToken = async () => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) return null;
+  try {
+    return await getIdToken(currentUser);
+  } catch (error) {
+    console.error('Error getting token:', error);
+    return null;
+  }
+};
 
 const AuthService = {
   register: async (userData) => {
     try {
-      // First try to register with our API
       const response = await api.post('/api/auth/register', userData);
       
-      // Sign in with custom token from API
       if (response.data && response.data.token) {
         await signInWithCustomToken(auth, response.data.token);
-        
-        // Return user data from API
         return {
           _id: response.data._id,
           name: response.data.name,
           email: response.data.email,
-          isAdmin: response.data.isAdmin || false
+          isAdmin: response.data.isAdmin || false,
         };
       } else {
         throw new Error('Registration successful but no token received');
@@ -32,7 +42,6 @@ const AuthService = {
     } catch (apiError) {
       console.error('API registration error:', apiError);
       
-      // Fallback to direct Firebase registration if API fails
       try {
         const userCredential = await createUserWithEmailAndPassword(
           auth, 
@@ -57,7 +66,7 @@ const AuthService = {
           _id: userCredential.user.uid,
           name: userData.name,
           email: userData.email,
-          isAdmin: false
+          isAdmin: false,
         };
       } catch (firebaseError) {
         console.error('Firebase registration error:', firebaseError);
@@ -68,19 +77,15 @@ const AuthService = {
   
   login: async (email, password) => {
     try {
-      // First try to login with our API
       const response = await api.post('/api/auth/login', { email, password });
       
-      // Sign in with custom token from API
       if (response.data && response.data.token) {
         await signInWithCustomToken(auth, response.data.token);
-        
-        // Return user data from API
         return {
           _id: response.data._id,
           name: response.data.name,
           email: response.data.email,
-          isAdmin: response.data.isAdmin || false
+          isAdmin: response.data.isAdmin || false,
         };
       } else {
         throw new Error('Login successful but no token received');
@@ -88,10 +93,8 @@ const AuthService = {
     } catch (apiError) {
       console.error('API login error:', apiError);
       
-      // Fallback to direct Firebase login if API fails
       try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        
         const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
         
         if (userDoc.exists()) {
@@ -100,7 +103,7 @@ const AuthService = {
             _id: userCredential.user.uid,
             name: userData.name,
             email: userData.email,
-            isAdmin: userData.isAdmin || false
+            isAdmin: userData.isAdmin || false,
           };
         } else {
           throw new Error('User profile not found');
@@ -126,7 +129,7 @@ const AuthService = {
       if (userDoc.exists()) {
         return {
           _id: currentUser.uid,
-          ...userDoc.data()
+          ...userDoc.data(),
         };
       }
       return null;
@@ -141,12 +144,10 @@ const AuthService = {
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error('No user logged in');
       
-      // First try to update with our API
       try {
         const response = await api.put('/api/auth/profile', userData);
         
         if (response.data && response.data.token) {
-          // If we get a new token, sign in with it
           await signInWithCustomToken(auth, response.data.token);
         }
         
@@ -155,14 +156,12 @@ const AuthService = {
           name: response.data.name,
           email: response.data.email,
           isAdmin: response.data.isAdmin || false,
-          avatar: response.data.avatar || ''
+          avatar: response.data.avatar || '',
         };
       } catch (apiError) {
         console.error('API update profile error:', apiError);
         
-        // Fallback to direct Firebase update
         const userRef = doc(db, 'users', currentUser.uid);
-        
         const updateData = {};
         if (userData.name) updateData.name = userData.name;
         if (userData.email) updateData.email = userData.email;
@@ -173,21 +172,21 @@ const AuthService = {
           
           if (userData.name) {
             await firebaseUpdateProfile(currentUser, {
-              displayName: userData.name
+              displayName: userData.name,
             });
           }
         }
         
         return {
           _id: currentUser.uid,
-          ...updateData
+          ...updateData,
         };
       }
     } catch (error) {
       console.error('Update profile error:', error);
       throw error;
     }
-  }
+  },
 };
 
 export default AuthService;
