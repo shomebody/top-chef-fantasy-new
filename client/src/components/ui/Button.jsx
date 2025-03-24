@@ -1,5 +1,8 @@
 import React from 'react';
 
+/**
+ * Button component with proper TypeScript support
+ */
 const Button = ({ 
   children = null, 
   variant = 'primary', 
@@ -13,8 +16,8 @@ const Button = ({
   className = '',
   ...props 
 }) => {
-  // Validation to ensure type is only one of the allowed values
-  const buttonType = ['button', 'submit', 'reset'].includes(type) ? type : 'button';
+  // Narrow the type to only allowed HTML button types
+  const buttonType = (type === 'submit' || type === 'reset' || type === 'button') ? type : 'button';
   
   const baseClasses = 'inline-flex items-center justify-center rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2';
   
