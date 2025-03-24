@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { useSocket } from '../hooks/useSocket.jsx';
 import api from '../services/api.js';
@@ -11,12 +11,12 @@ export const LeagueContext = createContext({
   challenges: [],
   loading: true,
   error: null,
-  fetchUserLeagues: () => {},
-  fetchLeagueDetails: () => {},
-  createLeague: () => {},
-  joinLeagueWithCode: () => {},
-  switchLeague: (value) => {},
-  updateLeague: () => {},
+  fetchUserLeagues: async () => [],
+  fetchLeagueDetails: async (leagueId) => ({}),
+  createLeague: async (leagueData) => ({}),
+  joinLeagueWithCode: async (inviteCode) => ({}),
+  switchLeague: (leagueId) => {},
+  updateLeague: async (leagueId, updateData) => ({}),
 });
 
 export const LeagueProvider = ({ children }) => {
@@ -31,6 +31,27 @@ export const LeagueProvider = ({ children }) => {
   const { user = null, isAuthenticated = false } = useAuth();
   const { socket = null, connected = false, EVENTS = { LEAGUE_UPDATE: 'league_update', SCORE_UPDATE: 'score_update' }, joinLeague = () => {} } = useSocket();
 
+  const fetchUserLeagues = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/leagues');
+      setLeagues(response.data);
+
+      if (response.data.length > 0 && !currentLeague) {
+        setCurrentLeague(response.data[0]);
+      }
+
+      setError(null);
+      return response.data;
+    } catch (err) {
+      console.error('Error fetching leagues:', err);
+      setError('Failed to load your leagues');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [currentLeague]);
+
   // Load user's leagues
   useEffect(() => {
     if (isAuthenticated) {
@@ -40,7 +61,36 @@ export const LeagueProvider = ({ children }) => {
           setError('Failed to load your leagues. Please refresh the page.');
         });
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, fetchUserLeagues]);
+
+  const fetchLeagueDetails = useCallback(async (leagueId) => {
+    try {
+      setLoading(true);
+
+      const leagueResponse = await api.get(`/leagues/${leagueId}`);
+      setCurrentLeague(leagueResponse.data);
+
+      const chefsResponse = await api.get('/chefs');
+      setChefs(chefsResponse.data);
+
+      const leaderboardResponse = await api.get(`/leagues/${leagueId}/leaderboard`);
+      setLeaderboard(leaderboardResponse.data);
+
+      const challengesResponse = await api.get('/challenges', {
+        params: { season: leagueResponse.data.season },
+      });
+      setChallenges(challengesResponse.data);
+
+      setError(null);
+      return leagueResponse.data;
+    } catch (err) {
+      console.error('Error fetching league details:', err.response?.data || err.message);
+      setError('Failed to load league details');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Listen for league updates from socket
   useEffect(() => {
@@ -77,63 +127,13 @@ export const LeagueProvider = ({ children }) => {
         socket.off(EVENTS.SCORE_UPDATE || 'score_update', handleScoreUpdate);
       };
     }
-  }, [socket, connected, currentLeague, EVENTS, joinLeague]);
+  }, [socket, connected, currentLeague, EVENTS, joinLeague, fetchLeagueDetails]);
 
-  const fetchUserLeagues = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/leagues');
-      setLeagues(response.data);
-
-      if (response.data.length > 0 && !currentLeague) {
-        setCurrentLeague(response.data[0]);
-      }
-
-      setError(null);
-      return response.data;
-    } catch (err) {
-      console.error('Error fetching leagues:', err);
-      setError('Failed to load your leagues');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchLeagueDetails = useCallback(async (leagueId) => {
-    try {
-      setLoading(true);
-
-      const leagueResponse = await api.get(`/leagues/${leagueId}`);
-      setCurrentLeague(leagueResponse.data);
-
-      const chefsResponse = await api.get('/chefs');
-      setChefs(chefsResponse.data);
-
-      const leaderboardResponse = await api.get(`/leagues/${leagueId}/leaderboard`);
-      setLeaderboard(leaderboardResponse.data);
-
-      const challengesResponse = await api.get('/challenges', {
-        params: { season: leagueResponse.data.season },
-      });
-      setChallenges(challengesResponse.data);
-
-      setError(null);
-      return leagueResponse.data;
-    } catch (err) {
-      console.error('Error fetching league details:', err.response?.data || err.message);
-      setError('Failed to load league details');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const createLeague = async (leagueData) => {
+  const createLeague = useCallback(async (leagueData) => {
     try {
       setLoading(true);
       const response = await api.post('/leagues', leagueData);
-      setLeagues([...leagues, response.data]);
+      setLeagues((prevLeagues) => [...prevLeagues, response.data]);
       setCurrentLeague(response.data);
       setError(null);
       return response.data;
@@ -144,13 +144,13 @@ export const LeagueProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const joinLeagueWithCode = async (inviteCode) => {
+  const joinLeagueWithCode = useCallback(async (inviteCode) => {
     try {
       setLoading(true);
       const response = await api.post('/leagues/join', { inviteCode });
-      setLeagues([...leagues, response.data]);
+      setLeagues((prevLeagues) => [...prevLeagues, response.data]);
       setCurrentLeague(response.data);
       setError(null);
       return response.data;
@@ -161,9 +161,9 @@ export const LeagueProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const switchLeague = (leagueId) => {
+  const switchLeague = useCallback((leagueId) => {
     const league = leagues.find((l) => l._id === leagueId);
     if (league) {
       setCurrentLeague(league);
@@ -173,17 +173,19 @@ export const LeagueProvider = ({ children }) => {
           setError('Failed to load league details');
         });
     }
-  };
+  }, [leagues, fetchLeagueDetails]);
 
-  const updateLeague = async (leagueId, updateData) => {
+  const updateLeague = useCallback(async (leagueId, updateData) => {
     try {
       setLoading(true);
       const response = await api.put(`/leagues/${leagueId}`, updateData);
       
       // Update the leagues list
-      setLeagues(leagues.map(league => 
-        league._id === leagueId ? response.data : league
-      ));
+      setLeagues(prevLeagues => 
+        prevLeagues.map(league => 
+          league._id === leagueId ? response.data : league
+        )
+      );
       
       // Update current league if it's the one being updated
       if (currentLeague?._id === leagueId) {
@@ -199,9 +201,9 @@ export const LeagueProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentLeague]);
 
-  const contextValue = {
+  const contextValue = useMemo(() => ({
     leagues,
     currentLeague,
     chefs,
@@ -215,7 +217,21 @@ export const LeagueProvider = ({ children }) => {
     joinLeagueWithCode,
     switchLeague,
     updateLeague
-  };
+  }), [
+    leagues, 
+    currentLeague, 
+    chefs, 
+    leaderboard, 
+    challenges, 
+    loading, 
+    error, 
+    fetchUserLeagues, 
+    fetchLeagueDetails, 
+    createLeague, 
+    joinLeagueWithCode, 
+    switchLeague, 
+    updateLeague
+  ]);
 
-  return <LeagueContext.Provider value={contextValue}>{children}</LeagueContext.Provider>;
+  return <LeagueContext value={contextValue}>{children}</LeagueContext>;
 };
