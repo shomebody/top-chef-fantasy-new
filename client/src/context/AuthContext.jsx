@@ -1,9 +1,20 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useMemo, useCallback } from 'react';
 import api from '../services/api.js';
 
-export const AuthContext = createContext();
 
-export const AuthProvider = ({ children }) => {
+export const AuthContext = createContext({
+  user: null,
+  isAuthenticated: false,
+  loading: true,
+  error: null,
+  login: async () => null,
+  logout: () => {},
+  register: async () => null,
+  updateProfile: async () => null,
+  setError: () => {}
+});
+
+export const AuthProvider = ({ children = null }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -11,6 +22,7 @@ export const AuthProvider = ({ children }) => {
 
   // Check if user is already logged in (from localStorage token)
   useEffect(() => {
+    let isMounted = true;
     const checkAuth = async () => {
       console.group('AUTH CHECK');
       console.log('Starting auth check');
@@ -27,28 +39,40 @@ export const AuthProvider = ({ children }) => {
           console.log('Fetching user profile...');
           const response = await api.get('/auth/profile');
           console.log('Profile response:', response.data);
-          setUser(response.data);
-          setIsAuthenticated(true);
+          
+          if (isMounted) {
+            setUser(response.data);
+            setIsAuthenticated(true);
+          }
         } else {
           console.log('No token found');
         }
       } catch (error) {
         console.error('Authentication error:', error);
-        console.error('Error details:', error.response?.data || error.message);
+        console.error('Error details:', error.response?.data ?? error.message ?? 'Unknown error');
         localStorage.removeItem('token');
-        setError('Session expired. Please log in again.');
+        if (isMounted) {
+          setError('Session expired. Please log in again.');
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
         console.log('Auth check complete');
         console.groupEnd();
       }
     };
     
     checkAuth();
+    
+    // Cleanup function to prevent state updates after unmount
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Login function
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     try {
       setLoading(true);
       setError(null);
@@ -71,24 +95,24 @@ export const AuthProvider = ({ children }) => {
       return userData;
     } catch (error) {
       console.error('Login error:', error);
-      console.error('Error response:', error.response?.data);
-      setError(error.response?.data?.message || 'Login failed');
+      console.error('Error response:', error.response?.data ?? 'No response data');
+      setError(error.response?.data?.message ?? 'Login failed');
       throw error;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Logout function
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('token');
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
     setIsAuthenticated(false);
-  };
+  }, []);
 
   // Register function
-  const register = async (userData) => {
+  const register = useCallback(async (userData) => {
     try {
       setLoading(true);
       setError(null);
@@ -108,34 +132,34 @@ export const AuthProvider = ({ children }) => {
       return newUser;
     } catch (error) {
       console.error('Registration error:', error);
-      setError(error.response?.data?.message || 'Registration failed');
+      setError(error.response?.data?.message ?? 'Registration failed');
       throw error;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Update user profile
-  const updateProfile = async (userData) => {
+  const updateProfile = useCallback(async (userData) => {
     try {
       setLoading(true);
       setError(null);
       
       const response = await api.put('/auth/profile', userData);
-      setUser({...user, ...response.data});
+      setUser(prevUser => ({...prevUser, ...response.data}));
       
       return response.data;
     } catch (error) {
       console.error('Profile update error:', error);
-      setError(error.response?.data?.message || 'Profile update failed');
+      setError(error.response?.data?.message ?? 'Profile update failed');
       throw error;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Context value
-  const contextValue = {
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
     user,
     isAuthenticated,
     loading,
@@ -144,8 +168,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     register,
     updateProfile,
-    setError
-  };
+    setError: (message) => setError(message)
+  }), [user, isAuthenticated, loading, error, login, logout, register, updateProfile]);
 
   return (
     <AuthContext.Provider value={contextValue}>
