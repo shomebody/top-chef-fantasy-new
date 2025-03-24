@@ -5,23 +5,13 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import admin from 'firebase-admin';
 import portfinder from 'portfinder';
 import { createLogger, format, transports } from 'winston';
 import setupSocket from './socket/index.js';
+import { admin } from './config/firebase.js';
 
 // Load environment variables
 dotenv.config();
-
-// Initialize Firebase Admin
-admin.initializeApp({
-  credential: admin.credential.cert({
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-  }),
-});
-const db = admin.firestore();
 
 // Configure logging with Winston
 const logger = createLogger({
@@ -98,11 +88,12 @@ const startServer = async () => {
       });
     });
 
-    // API Routes (update controllers to use Firestore)
+    // API Routes
     app.use('/api/auth', (await import('./routes/authRoutes.js')).default);
     app.use('/api/chefs', (await import('./routes/chefRoutes.js')).default);
     app.use('/api/leagues', (await import('./routes/leagueRoutes.js')).default);
     app.use('/api/challenges', (await import('./routes/challengeRoutes.js')).default);
+    app.use('/api/messages', (await import('./routes/messageRoutes.js')).default);
 
     // Welcome route
     app.get('/', (req, res) => {

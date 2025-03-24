@@ -17,7 +17,7 @@ export const protect = asyncHandler(async (req, res, next) => {
       // Add user info to request
       req.user = {
         _id: decodedToken.uid,
-        email: decodedToken.email
+        email: decodedToken.email || decodedToken.firebase.identities.email?.[0]
       };
       
       next();
@@ -26,9 +26,7 @@ export const protect = asyncHandler(async (req, res, next) => {
       res.status(401);
       throw new Error('Not authorized, token failed');
     }
-  }
-  
-  if (!token) {
+  } else if (!token) {
     res.status(401);
     throw new Error('Not authorized, no token');
   }
@@ -38,17 +36,18 @@ export const protect = asyncHandler(async (req, res, next) => {
 export const admin = asyncHandler(async (req, res, next) => {
   try {
     // Get user from Firestore
-    const userDoc = await db.collection('users').doc(req.user._id).get();
+    const userDoc = await auth.getUser(req.user._id);
+    const userData = (await db.collection('users').doc(req.user._id).get()).data();
     
-    if (userDoc.exists && userDoc.data().isAdmin) {
+    if (userData && userData.isAdmin) {
       next();
     } else {
-      res.status(401);
+      res.status(403);
       throw new Error('Not authorized as an admin');
     }
   } catch (error) {
     console.error('Admin middleware error:', error);
-    res.status(401);
+    res.status(403);
     throw new Error('Not authorized as an admin');
   }
 });

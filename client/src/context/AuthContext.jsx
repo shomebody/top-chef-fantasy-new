@@ -1,8 +1,7 @@
 import React, { createContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
-import AuthService from '../services/authService';
 
 export const AuthContext = createContext({
   user: null,
@@ -45,11 +44,9 @@ export function AuthProvider({ children }) {
             setError('Failed to load user profile');
           }
         }
-      } else {
-        if (isMounted) {
-          setUser(null);
-          setIsAuthenticated(false);
-        }
+      } else if (isMounted) {
+        setUser(null);
+        setIsAuthenticated(false);
       }
       
       if (isMounted) {
@@ -71,11 +68,25 @@ export function AuthProvider({ children }) {
       setLoading(true);
       setError(null);
       
-      const userData = await AuthService.login(email, password);
-      setUser(userData);
-      setIsAuthenticated(true);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
       
-      return userData;
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const user = {
+          _id: userCredential.user.uid,
+          name: userData.name,
+          email: userData.email,
+          isAdmin: userData.isAdmin || false
+        };
+        
+        setUser(user);
+        setIsAuthenticated(true);
+        
+        return user;
+      } else {
+        throw new Error('User profile not found');
+      }
     } catch (error) {
       console.error('Login error:', error);
       setError(error.message || 'Login failed');
@@ -87,7 +98,7 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     try {
-      await AuthService.logout();
+      await signOut(auth);
       setUser(null);
       setIsAuthenticated(false);
     } catch (error) {
@@ -101,7 +112,32 @@ export function AuthProvider({ children }) {
       setLoading(true);
       setError(null);
       
-      const newUser = await AuthService.register(userData);
+      const userCredential = await createUserWithEmailAndPassword(
+        auth, 
+        userData.email, 
+        userData.password
+      );
+      
+      await updateProfile(userCredential.user, {
+        displayName: userData.name
+      });
+      
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        name: userData.name,
+        email: userData.email,
+        avatar: '',
+        isAdmin: false,
+        leagues: [],
+        createdAt: new Date().toISOString()
+      });
+      
+      const newUser = {
+        _id: userCredential.user.uid,
+        name: userData.name,
+        email: userData.email,
+        isAdmin: false
+      };
+      
       setUser(newUser);
       setIsAuthenticated(true);
       
@@ -115,17 +151,42 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const updateProfile = useCallback(async (userData) => {
+  const updateUserProfile = useCallback(async (userData) => {
     try {
       setLoading(true);
       setError(null);
       
-      const updatedUser = await AuthService.updateProfile(userData);
-      setUser(prev => ({...prev, ...updatedUser}));
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('No user logged in');
       
-      return updatedUser;
+      const userRef = doc(db, 'users', currentUser.uid);
+      
+      const updateData = {};
+      if (userData.name) updateData.name = userData.name;
+      if (userData.email) updateData.email = userData.email;
+      if (userData.avatar) updateData.avatar = userData.avatar;
+      
+      if (Object.keys(updateData).length > 0) {
+        await updateDoc(userRef, updateData);
+        
+        if (userData.name) {
+          await updateProfile(currentUser, {
+            displayName: userData.name
+          });
+        }
+      }
+      
+      setUser(prev => ({
+        ...prev,
+        ...updateData
+      }));
+      
+      return {
+        _id: currentUser.uid,
+        ...updateData
+      };
     } catch (error) {
-      console.error('Profile update error:', error);
+      console.error('Update profile error:', error);
       setError(error.message || 'Profile update failed');
       throw error;
     } finally {
@@ -141,13 +202,13 @@ export function AuthProvider({ children }) {
     login,
     logout,
     register,
-    updateProfile,
+    updateProfile: updateUserProfile,
     setError: (message) => setError(message)
-  }), [user, isAuthenticated, loading, error, login, logout, register, updateProfile]);
+  }), [user, isAuthenticated, loading, error, login, logout, register, updateUserProfile]);
 
   return (
-<AuthContext.Provider value={value}>
-  {children}
-</AuthContext.Provider>
-);
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 }

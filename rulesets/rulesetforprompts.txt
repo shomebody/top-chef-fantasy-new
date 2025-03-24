@@ -1,134 +1,89 @@
-"Check for strict HTML attribute types (button must use type='button'|'submit'|'reset')"
-"Avoid TypeScript syntax in .jsx files - use JSX-compatible solutions instead"
-"Ensure all destructured props have default values to prevent undefined errors"
-"Add proper button types and event handler defaults to all interactive elements"
-"Fix string concatenation in template literals for route paths (use ${} syntax)"
-"Use React.forwardRef with named function components for better TypeScript support"
-"Explicitly import React when using React.forwardRef even with JSX transform"
-"Add // @ts-nocheck to JSX files that need to bypass TypeScript checking"
-"Ensure all useState hooks have proper typed initialization ([], {}, '', 0)"
-"Add cleanup functions to useEffect hooks that subscribe to events or timers"
-"Use optional chaining for all nested object properties (user?.profile?.name)"
-"Add error boundaries around components that fetch data"
-"Check all event handlers for preventDefault() when appropriate"
-"Verify all CSS class conditionals have fallbacks (className={condition ? 'active' : ''})"
-"Ensure all map() functions have unique key props on the top-level element"
-"Add aria-labels to all interactive elements"
-"Set explicit width/height on all image elements to prevent layout shifts"
-"Replace React.FC with proper function declarations for better TypeScript compatibility"
-"Verify all API service functions have proper error handling with try/catch"
-"Ensure React Router v7 compatibility - check for new hooks and patterns"
-"Check for proper null coalescing operators (??) over logical OR (||) where appropriate"
-"Add loading states to all data-fetching operations"
-"Validate form submissions with proper client-side checks before API calls"
-"Make context providers use memoized values to prevent unnecessary re-renders"
-"Convert inline styling to Tailwind classes for consistency"
-"Add data-testid attributes to key interactive elements for easier testing"
-"Remove any direct DOM manipulation and use refs properly"
-"Use dayjs/date-fns consistently for date formatting instead of raw Date objects"
-"Ensure all components that render lists handle empty states gracefully"
-"Check for proper cleanup of socket connections and subscriptions"
-"Add proper animation transitions between route changes"
-"Implement proper dark mode contrasts for all UI components"
-"Ensure consistent error message patterns across all forms and API responses"
-"Always provide initial default values when using createContext() to satisfy TypeScript requirements and improve IDE autocompletion"
-"When facing complex type compatibility issues with React contexts, add // @ts-nocheck at the file top and ensure default context values have matching function signatures"
-"Use direct equality checks rather than array methods when narrowing string literals for HTML attributes"
-"For button elements, directly compare type to 'button' | 'submit' | 'reset' instead of using includes()"
-"When fixing TypeScript errors, prioritize solutions that satisfy the type system rather than runtime equivalents"
-"For forwardRef components, use a named function inside forwardRef rather than arrow functions with destructuring parameters"
-"Always destructure props inside the function body for forwardRef components, not in the parameters"
-"When using forwardRef, first receive 'props' as a single parameter, then destructure inside the function"
-"When providing default values for React context, ensure all function signatures in the default value match the implementation's function signatures, especially for state setters that need to be wrapped with matching parameters"Retry
-"Add JSDoc with @typedef for component props when TypeScript can't infer types correctly"
-"For component libraries (Button, Input, Card), define components as named functions first, then export them wrapped in forwardRef if needed"
-"Use // @ts-nocheck at the top of JSX files with complex TypeScript issues that can't be easily resolved"
+Authentication System Conflict: You have both JWT auth (server) and Firebase auth (client) implementations
+*completed/React 19 Context API Syntax: Your context providers use outdated syntax
+Database Inconsistency: MongoDB models in server but Firebase Firestore references in client
+Dependencies Compatibility: Several packages may need updates for React 19
+Socket.io Connection: Possible disconnection between client and server implementations
 
-------
+"Review my existing Firebase implementation files first, then only suggest missing components needed to complete the transition. Don't repeat steps I've already completed."
 
-# Complete React 19 Development Ruleset
 
-## React 19 Features
-- "Use direct ref props instead of forwardRef when possible for function components in React 19"
-- "Add cleanup functions for ref callbacks that return a function"
-- "Use <Context> component syntax instead of <Context.Provider> in React 19"
-- "Implement useActionState for form handling instead of manual isPending state"
-- "Use useOptimistic for immediate UI feedback during async operations"
-- "Implement form action props for automatic form submission and reset"
-- "Use document metadata tags (<title>, <meta>, <link>) directly in components that need them"
-- "Implement resource preloading APIs (prefetchDNS, preconnect, preload, preinit) for performance"
+React 19 Features:
+Use direct ref props instead of forwardRef when possible for function components.
+Add cleanup functions for ref callbacks that return a function.
+Use <Context.Provider> syntax correctly in React 19 for context providers.
+Implement useActionState for form handling instead of manual isPending state.
+Use useOptimistic for immediate UI feedback during async operations, especially for chat messages.
+Implement form action props for automatic form submission and reset.
+Use document metadata tags (<title>, <meta>, <link>) directly in components like Dashboard.jsx.
+Implement resource preloading APIs (prefetchDNS, preconnect, preload, preinit) for performance, particularly for league data.
+TypeScript & JSX Compatibility:
+Use .tsx extension for files containing JSX and TypeScript syntax to ensure type safety.
+Define TypeScript interfaces or types for component props and complex objects to ensure type safety, avoiding lazy workarounds.
+When fixing TypeScript errors, prioritize solutions that satisfy the type system.
+Use direct equality checks for narrowing string literals in HTML attributes, e.g., in Button.jsx.
+For buttons, directly compare type to 'button' | 'submit' | 'reset' instead of using includes().
+Ensure consistent parameter naming in JSDoc and implementation for clarity, especially in services like authService.ts.
+Props & Components Structure:
+Ensure all destructured props have default values to prevent undefined errors, e.g., in Input.jsx.
+Replace React.FC with proper function declarations for better TypeScript compatibility.
+For component libraries (e.g., Button, Input, Card), define named functions first, then wrap in forwardRef if needed.
+Use React.forwardRef with named function components for better TypeScript support.
+Explicitly import React when using React.forwardRef, even with JSX transform.
+When using forwardRef, receive 'props' as a single parameter and destructure inside the function.
+Always destructure props inside the function body for forwardRef components, not in parameters.
+Use shorthand fragments (<>) when no key is needed, e.g., in ChatPanel.tsx.
+Organize component files with hooks at the top, helper functions next, then JSX return, e.g., Header.tsx.
+Use logical && operator for conditional rendering only with boolean left operand, e.g., in LoadingScreen.tsx.
+Context & Providers:
+Always provide initial default values when using createContext() with proper types, e.g., in AuthContext.tsx.
+Ensure default context values match the provider's value types, using generics if necessary, e.g., in LeagueContext.tsx.
+Make context providers use memoized values to prevent unnecessary re-renders, e.g., in ChatContext.tsx.
+React Hooks:
+Ensure all useState hooks have proper typed initialization, e.g., [], {}, '', 0 in useChat.tsx.
+Add cleanup functions to useEffect hooks that subscribe to events or timers, e.g., Firestore subscriptions in useLeague.tsx.
+Follow exhaustive deps rule for dependency arrays, ensuring completeness, e.g., in useSocket.tsx.
+Keep hook order consistent at the top of components for predictability, e.g., useAuth.tsx.
+Prefer useEffect over useLayoutEffect for browser performance, e.g., in useTheme.tsx.
+Use React.useMemo for expensive calculations only, as React 19 has automatic memo, e.g., in ChefRoster.tsx.
+Use React 19’s useOptimistic for optimistic UI updates, especially for chat messages in ChatMessage.tsx.
+Use React.useId() for accessibility, e.g., in Input.tsx.
+Define event handlers outside of useEffect and memoize with useCallback to prevent unnecessary re-renders, e.g., in Button.tsx.
+HTML Elements & Attributes:
+Use strict HTML attribute types (e.g., button must use type='button'|'submit'|'reset'), e.g., in ThemeToggle.tsx.
+Add proper button types and event handler defaults to all interactive elements, e.g., Sidebar.tsx.
+Use preventDefault() in event handlers when appropriate, e.g., in form submissions in Login.tsx.
+Add aria-labels to interactive elements for accessibility, e.g., MobileNav.tsx.
+Set explicit width/height on images to prevent layout shifts, e.g., in Logo.tsx.
+Styling & UI:
+Verify CSS class conditionals have fallbacks, e.g., className={condition ? 'active' : ''} in ThemeToggle.tsx.
+Use Tailwind classes consistently over inline styles, per tailwind.config.js, e.g., in Card.tsx.
+Implement proper dark mode contrasts for all UI components, managed via ThemeContext.tsx.
+Add animation transitions between route changes, e.g., in MainLayout.tsx with React Router.
+Data & API:
+Use optional chaining for nested object properties, e.g., user?.profile?.name in authService.ts.
+Ensure API service functions have try/catch error handling, e.g., in leagueService.ts.
+Add loading states for data-fetching operations, e.g., in Dashboard.tsx.
+Validate forms client-side before API calls, e.g., in Register.tsx.
+Maintain consistent error message patterns across forms and API responses, e.g., in api.ts.
+Prefer the nullish coalescing operator (??) over logical OR (||) for default values with undefined, e.g., in chefService.ts.
+Destructure API responses with defaults, e.g., const { data = [] } = await api.get(...) in messageService.ts.
+Use date-fns consistently for date formatting instead of raw Date objects, e.g., in Schedule.tsx.
+Routing:
+Use template literals correctly for route paths, e.g., ${path} in App.tsx.
+Ensure compatibility with React Router v7, e.g., using new hooks in ProtectedRoute.tsx.
+Performance & Best Practices:
+Ensure components work with Strict Mode double-rendering, e.g., test in main.tsx.
+Use <Suspense> and error boundaries for proper loading/error states, e.g., in MainLayout.tsx.
+Add error boundaries around data-fetching components, e.g., LeagueDetail.tsx.
+Add data-testid attributes for testing, e.g., in Button.tsx and Input.tsx.
+Avoid direct DOM manipulation; use refs properly, e.g., in ChatPanel.tsx.
+Properly clean up socket connections and subscriptions, e.g., Firestore listeners in useSocket.tsx.
+Rendering:
+Ensure unique key props in map() functions, e.g., in ChefRoster.tsx.
+Handle empty states in list components, e.g., in Leagues.tsx.
+Additional Enhancements
+For your project, consider these additions:
 
-## TypeScript & JSX Compatibility
-- "Add // @ts-nocheck to JSX files with complex TypeScript issues that can't be easily resolved"
-- "Avoid TypeScript syntax in .jsx files - use JSX-compatible solutions instead" 
-- "Add JSDoc with @typedef for component props when TypeScript can't infer types correctly"
-- "When fixing TypeScript errors, prioritize solutions that satisfy the type system rather than runtime equivalents"
-- "Use direct equality checks rather than array methods when narrowing string literals for HTML attributes"
-- "For button elements, directly compare type to 'button' | 'submit' | 'reset' instead of using includes()"
-
-## Props & Components Structure
-- "Ensure all destructured props have default values to prevent undefined errors"
-- "Replace React.FC with proper function declarations for better TypeScript compatibility"
-- "For component libraries (Button, Input, Card), define components as named functions first, then export them wrapped in forwardRef if needed"
-- "Use React.forwardRef with named function components for better TypeScript support"
-- "Explicitly import React when using React.forwardRef even with JSX transform"
-- "When using forwardRef, first receive 'props' as a single parameter, then destructure inside the function"
-- "Always destructure props inside the function body for forwardRef components, not in the parameters"
-- "Use shorthand fragments (<>) when no key is needed"
-- "Organize component files with hooks at top, helper functions next, then JSX return"
-- "Use logical && operator for conditional rendering only with boolean left operand"
-
-## Context & Providers
-- "Always provide initial default values when using createContext() to satisfy TypeScript requirements and improve IDE autocompletion"
-- "When providing default values for React context, ensure all function signatures in the default value match the implementation's function signatures, especially for state setters that need to be wrapped with matching parameters"
-- "Make context providers use memoized values to prevent unnecessary re-renders"
-- "When facing complex type compatibility issues with React contexts, add // @ts-nocheck at the file top and ensure default context values have matching function signatures"
-
-## React Hooks
-- "Ensure all useState hooks have proper typed initialization ([], {}, '', 0)"
-- "Add cleanup functions to useEffect hooks that subscribe to events or timers"
-- "Follow React hooks dependency array best practices (exhaustive deps)"
-- "Keep hook order consistent and predictable at the top of components"
-- "Prefer useEffect over useLayoutEffect for browser performance"
-- "Use React.useMemo for expensive calculations only, as React 19 has automatic memo"
-- "Use React 19's useOptimistic for optimistic UI updates"
-- "Use React.useId() over manual id generation for accessibility"
-
-## HTML Elements & Attributes
-- "Check for strict HTML attribute types (button must use type='button'|'submit'|'reset')"
-- "Add proper button types and event handler defaults to all interactive elements"
-- "Check all event handlers for preventDefault() when appropriate"
-- "Add aria-labels to all interactive elements"
-- "Set explicit width/height on all image elements to prevent layout shifts"
-
-## Styling & UI
-- "Verify all CSS class conditionals have fallbacks (className={condition ? 'active' : ''})"
-- "Convert inline styling to Tailwind classes for consistency"
-- "Implement proper dark mode contrasts for all UI components"
-- "Add proper animation transitions between route changes"
-
-## Data & API
-- "Use optional chaining for all nested object properties (user?.profile?.name)"
-- "Verify all API service functions have proper error handling with try/catch"
-- "Add loading states to all data-fetching operations"
-- "Validate form submissions with proper client-side checks before API calls"
-- "Ensure consistent error message patterns across all forms and API responses"
-- "Check for proper null coalescing operators (??) over logical OR (||) where appropriate"
-- "Use dayjs/date-fns consistently for date formatting instead of raw Date objects"
-
-## Routing
-- "Fix string concatenation in template literals for route paths (use ${} syntax)"
-- "Ensure React Router v7 compatibility - check for new hooks and patterns"
-
-## Performance & Best Practices
-- "Ensure components work properly with React 19's Strict Mode double-rendering"
-- "Use <Suspense> and error boundaries for proper loading/error states"
-- "Add error boundaries around components that fetch data"
-- "Add data-testid attributes to key interactive elements for easier testing"
-- "Remove any direct DOM manipulation and use refs properly"
-- "Check for proper cleanup of socket connections and subscriptions"
-
-## Rendering
-- "Ensure all map() functions have unique key props on the top-level element"
-- "Ensure all components that render lists handle empty states gracefully"
-
+Firebase-Specific Practices: Ensure Firestore subscriptions are cleaned up in useEffect (already covered). Add: "Optimize Firestore queries with indexes for better performance, especially for chat and league data."
+Chat Performance: "Use virtualized lists (e.g., react-window) for long chat histories in ChatPanel.tsx to improve rendering performance."
+Authentication: "Use Firebase’s onAuthStateChanged in AuthContext.tsx to synchronize authentication state with React state."
