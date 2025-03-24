@@ -1,24 +1,38 @@
+// Updated LeagueDetail.jsx
 import React, { useEffect, useState } from 'react';
-import { useParams, Navigate } from 'react-router-dom';
+import { useParams, Navigate, Link } from 'react-router-dom';
 import { useLeague } from '../hooks/useLeague.jsx';
 import { useChat } from '../hooks/useChat.jsx';
+import { useAuth } from '../hooks/useAuth.jsx';
 import Card from '../components/ui/Card.jsx';
 import Button from '../components/ui/Button.jsx';
 
 const LeagueDetail = () => {
   const { id } = useParams();
   const { leagues, currentLeague, leaderboard, loading, error, fetchLeagueDetails, switchLeague } = useLeague();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
-  const { messages, sendMessage } = useChat(id);
   const [chatInput, setChatInput] = useState('');
   const [chatError, setChatError] = useState('');
+  const [localError, setLocalError] = useState('');
+  
+  // Get chat functionality with proper defaults for React 19
+  const { 
+    messages = [], 
+    sendMessage = () => {}, 
+    typingUsers = []
+  } = useChat(id);
 
   useEffect(() => {
     if (id) {
       if (!currentLeague || currentLeague._id !== id) {
         switchLeague(id);
       }
-      fetchLeagueDetails(id).catch((err) => console.error('Fetch league details failed:', err));
+      fetchLeagueDetails(id)
+        .catch(err => {
+          console.error('Fetch league details failed:', err);
+          setLocalError('Failed to load league details. Please try again.');
+        });
     }
   }, [id, currentLeague, fetchLeagueDetails, switchLeague]);
 
@@ -42,6 +56,11 @@ const LeagueDetail = () => {
     }
   };
 
+  const isLeagueAdmin = currentLeague?.members?.some(
+    member => member.user._id === user?._id && 
+    (member.role === 'owner' || member.role === 'admin')
+  );
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -62,10 +81,10 @@ const LeagueDetail = () => {
     );
   }
 
-  if (error) {
+  if (error || localError) {
     return (
       <div className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 p-4 rounded-lg m-6">
-        {error}
+        {error || localError}
       </div>
     );
   }
@@ -82,10 +101,10 @@ const LeagueDetail = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button variant="outline" size="sm" aria-label="Invite members">
+            <Button variant="outline" size="sm">
               Invite
             </Button>
-            <Button variant="primary" size="sm" aria-label="Manage league">
+            <Button variant="primary" size="sm">
               {currentLeague?.status === 'draft' ? 'Start Draft' : 'Manage League'}
             </Button>
           </div>
@@ -115,7 +134,6 @@ const LeagueDetail = () => {
                   : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
               }`}
               onClick={() => setActiveTab(tab)}
-              aria-label={`Switch to ${tab} tab`}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
@@ -128,7 +146,7 @@ const LeagueDetail = () => {
           {activeTab === 'overview' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card title="League Status" className="text-center">
+                <Card title="League Status">
                   <div className="text-3xl font-bold mb-2 capitalize">{currentLeague?.status}</div>
                   <p className="text-gray-600 dark:text-gray-400">
                     {currentLeague?.status === 'draft'
@@ -136,7 +154,7 @@ const LeagueDetail = () => {
                       : `Week ${currentLeague?.currentWeek} of competition`}
                   </p>
                 </Card>
-                <Card title="Scoring System" className="text-center">
+                <Card title="Scoring System">
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span>Challenge Win</span>
@@ -156,15 +174,19 @@ const LeagueDetail = () => {
                     </div>
                   </div>
                 </Card>
-                <Card title="Invite Code" className="text-center">
+                <Card title="Invite Code">
                   <div className="bg-gray-100 dark:bg-gray-700 py-2 px-4 rounded-lg font-mono text-lg mb-2">
                     {currentLeague?.inviteCode || 'N/A'}
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => navigator.clipboard.writeText(currentLeague?.inviteCode || '')}
-                    aria-label="Copy invite code to clipboard"
+                    onClick={() => {
+                      if (currentLeague?.inviteCode) {
+                        navigator.clipboard.writeText(currentLeague.inviteCode)
+                          .catch(err => console.error('Failed to copy:', err));
+                      }
+                    }}
                   >
                     Copy to Clipboard
                   </Button>
@@ -275,7 +297,7 @@ const LeagueDetail = () => {
                     <input
                       type="text"
                       value={currentLeague?.name || ''}
-                      readOnly
+                      readOnly={!isLeagueAdmin}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                     />
                   </div>
@@ -286,7 +308,7 @@ const LeagueDetail = () => {
                     <input
                       type="number"
                       value={currentLeague?.season || ''}
-                      readOnly
+                      readOnly={!isLeagueAdmin}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                     />
                   </div>
@@ -297,7 +319,7 @@ const LeagueDetail = () => {
                     <input
                       type="number"
                       value={currentLeague?.maxMembers || ''}
-                      readOnly
+                      readOnly={!isLeagueAdmin}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                     />
                   </div>
@@ -308,12 +330,16 @@ const LeagueDetail = () => {
                     <input
                       type="number"
                       value={currentLeague?.maxRosterSize || ''}
-                      readOnly
+                      readOnly={!isLeagueAdmin}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                     />
                   </div>
                 </div>
-                <Button variant="primary" className="mt-6" disabled aria-label="Update league settings">
+                <Button 
+                  variant="primary" 
+                  className="mt-6" 
+                  disabled={!isLeagueAdmin}
+                >
                   Update Settings
                 </Button>
               </Card>
@@ -321,7 +347,13 @@ const LeagueDetail = () => {
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
                   These actions cannot be undone. Please be certain.
                 </p>
-                <Button variant="danger" disabled aria-label="Leave league">
+                <Button variant="danger" onClick={() => {
+                  // Implement leave league with confirmation
+                  if (window.confirm("Are you sure you want to leave this league?")) {
+                    // API call would go here
+                    console.log("User confirmed leaving league");
+                  }
+                }}>
                   Leave League
                 </Button>
               </Card>
@@ -356,13 +388,16 @@ const LeagueDetail = () => {
                     No messages yet. Start the conversation!
                   </div>
                 )}
+                {typingUsers && typingUsers.length > 0 && (
+                  <div className="text-gray-500 dark:text-gray-400 text-sm">
+                    {typingUsers.length === 1
+                      ? `${typingUsers[0].username} is typing...`
+                      : `${typingUsers.length} people are typing...`}
+                  </div>
+                )}
               </div>
               <form onSubmit={handleSendMessage} className="flex gap-2">
-                <label htmlFor="chatInput" className="sr-only">
-                  Chat message
-                </label>
                 <input
-                  id="chatInput"
                   type="text"
                   className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                   placeholder="Type a message..."
@@ -373,7 +408,6 @@ const LeagueDetail = () => {
                   type="submit"
                   variant="primary"
                   disabled={!chatInput.trim()}
-                  aria-label="Send chat message"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"

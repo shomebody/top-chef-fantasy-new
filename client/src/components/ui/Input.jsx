@@ -1,27 +1,59 @@
 import { forwardRef } from 'react';
 
+/**
+ * @typedef {Object} InputProps
+ * @property {string} [label]
+ * @property {string} [error]
+ * @property {string} [type]
+ * @property {string} [id]
+ * @property {string} [name]
+ * @property {string} [placeholder]
+ * @property {boolean} [required]
+ * @property {boolean} [disabled]
+ * @property {string} [helper]
+ * @property {string} [className]
+ * @property {Function} [onChange]
+ */
+
+/**
+ * Input component
+ * @param {InputProps} props
+ * @param {import('react').Ref<HTMLInputElement>} ref
+ * @returns {JSX.Element}
+ */
 const Input = forwardRef(({
-  label,
-  error,
+  // @ts-ignore
+  label = '',
+  // @ts-ignore
+  error = '',
+  // @ts-ignore
   type = 'text',
-  id,
-  name,
-  placeholder,
+  // @ts-ignore
+  id = '',
+  // @ts-ignore
+  name = '',
+  // @ts-ignore
+  placeholder = '',
+  // @ts-ignore
   required = false,
+  // @ts-ignore
   disabled = false,
-  helper,
+  // @ts-ignore
+  helper = '',
+  // @ts-ignore
   className = '',
+  // @ts-ignore
+  onChange = () => {},
   ...props
 }, ref) => {
-  const inputId = id || name;
+  const inputId = id || name || `input-${Math.random().toString(36).substr(2, 9)}`;
+
+  const inputClasses = `w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${error ? 'border-red-500' : 'border-gray-300'} ${className}`;
 
   return (
     <div className="mb-4">
       {label && (
-        <label
-          htmlFor={inputId}
-          className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
+        <label htmlFor={inputId} className="block mb-2 text-sm font-medium">
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -31,32 +63,15 @@ const Input = forwardRef(({
         type={type}
         id={inputId}
         name={name}
-        className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${className}`}
+        className={inputClasses}
         placeholder={placeholder}
         disabled={disabled}
         required={required}
-        aria-invalid={error ? 'true' : 'false'}
-        aria-describedby={error ? `${inputId}-error` : helper ? `${inputId}-helper` : undefined}
+        onChange={onChange}
         {...props}
       />
-
-      {error && (
-        <p
-          id={`${inputId}-error`}
-          className="mt-1 text-sm text-red-600 dark:text-red-500"
-        >
-          {error}
-        </p>
-      )}
-
-      {helper && !error && (
-        <p
-          id={`${inputId}-helper`}
-          className="mt-1 text-sm text-gray-500 dark:text-gray-400"
-        >
-          {helper}
-        </p>
-      )}
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+      {helper && !error && <p className="mt-1 text-sm text-gray-500">{helper}</p>}
     </div>
   );
 });

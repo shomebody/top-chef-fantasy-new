@@ -20,8 +20,16 @@ const Card = ({
   const borderClass = bordered ? 'border border-gray-200 dark:border-gray-700' : '';
   const hoverClass = hover ? 'hover:shadow-card-hover hover:-translate-y-1' : '';
   
+  const cardClass = `
+    bg-white dark:bg-gray-800 rounded-lg shadow-sm
+    ${borderClass}
+    ${hoverClass}
+    ${className}
+    transition-all duration-200
+  `;
+  
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
+    <div className={cardClass}>
       {(title || action) && (
         <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <div>
@@ -31,7 +39,7 @@ const Card = ({
           {action && <div>{action}</div>}
         </div>
       )}
-      <div className={paddingClasses[padding]}>
+      <div className={paddingClasses[padding] || paddingClasses.md}>
         {children}
       </div>
     </div>
@@ -39,4 +47,3 @@ const Card = ({
 };
 
 export default Card;
-

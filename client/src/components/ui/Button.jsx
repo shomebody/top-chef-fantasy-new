@@ -8,10 +8,14 @@ const Button = ({
   isLoading = false, 
   disabled = false, 
   icon = null,
-  onClick,
-  type = 'button',
+  onClick = () => {},
+  // Type is restricted to valid button types
+  type = 'button', 
   ...props 
 }) => {
+  // Validation to ensure type is only one of the allowed values
+  const buttonType = type === 'submit' || type === 'reset' ? type : 'button';
+  
   const baseClasses = 'inline-flex items-center justify-center rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2';
   
   const variantClasses = {
@@ -27,16 +31,21 @@ const Button = ({
     lg: 'px-6 py-3 text-lg',
   };
   
-  const loadingClass = isLoading ? 'opacity-80 cursor-wait' : '';
-  const disabledClass = disabled ? 'opacity-60 cursor-not-allowed' : '';
-  const widthClass = fullWidth ? 'w-full' : '';
+  const classes = `
+    ${baseClasses}
+    ${variantClasses[variant] || variantClasses.primary}
+    ${sizeClasses[size] || sizeClasses.md}
+    ${fullWidth ? 'w-full' : ''}
+    ${isLoading || disabled ? 'opacity-60 cursor-not-allowed' : ''}
+    ${props.className || ''}
+  `;
   
   return (
     <button
-      type={type}
+      type={buttonType}
       onClick={onClick}
       disabled={disabled || isLoading}
-      className="px-4 py-2 bg-primary-600 text-white rounded-lg"
+      className={classes}
       {...props}
     >
       {isLoading ? (
@@ -58,4 +67,3 @@ const Button = ({
 };
 
 export default Button;
-
