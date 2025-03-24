@@ -1,3 +1,5 @@
+// server/src/index.js
+import admin, { db, auth } from './config/firebase.js'; // Fixed import
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -8,7 +10,6 @@ import morgan from 'morgan';
 import portfinder from 'portfinder';
 import { createLogger, format, transports } from 'winston';
 import setupSocket from './socket/index.js';
-import { admin } from './config/firebase.js';
 
 // Load environment variables
 dotenv.config();
@@ -24,17 +25,19 @@ const logger = createLogger({
   transports: [
     new transports.Console(),
     new transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new transports.File({ filename: 'logs/combined.log' })
+    new transports.File({ filename: 'logs/combined.log' }),
   ],
 });
 
 // Graceful shutdown handler
-const gracefulShutdown = (server, signal) => {
+const gracefulShutdown = (server, io, signal) => {
   logger.info(`Received ${signal}. Starting graceful shutdown...`);
-  server.close(() => {
-    logger.info('HTTP server closed.');
-    // Firebase Admin doesn't require explicit connection close
-    process.exit(0);
+  io.close(() => {
+    logger.info('Socket.IO connections closed.');
+    server.close(() => {
+      logger.info('HTTP server closed.');
+      process.exit(0);
+    });
   });
 };
 
@@ -56,8 +59,8 @@ const startServer = async () => {
       pingInterval: 25000,
     });
 
-    // Setup Socket.IO logic
-    setupSocket(io);
+    // Setup Socket.IO with Firebase
+    setupSocket(io, db, auth);
 
     // Middleware
     app.use(express.json({ limit: '10mb' }));
@@ -79,16 +82,22 @@ const startServer = async () => {
       stream: { write: (message) => logger.info(message.trim()) },
     }));
 
-    // Health check endpoint
-    app.get('/health', (req, res) => {
-      res.status(200).json({
-        status: 'healthy',
-        uptime: process.uptime(),
-        timestamp: new Date().toISOString(),
-      });
+    // Health check endpoint with Firebase status
+    app.get('/health', async (req, res) => {
+      try {
+        await db.collection('health').doc('status').set({ lastChecked: admin.firestore.FieldValue.serverTimestamp() });
+        res.status(200).json({
+          status: 'healthy',
+          uptime: process.uptime(),
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        logger.error('Health check failed:', error);
+        res.status(500).json({ status: 'unhealthy', error: error.message });
+      }
     });
 
-    // API Routes
+    // API Routes (pass db and auth if needed)
     app.use('/api/auth', (await import('./routes/authRoutes.js')).default);
     app.use('/api/chefs', (await import('./routes/chefRoutes.js')).default);
     app.use('/api/leagues', (await import('./routes/leagueRoutes.js')).default);
@@ -142,17 +151,17 @@ const startServer = async () => {
 
     // Graceful shutdown
     ['SIGINT', 'SIGTERM'].forEach((signal) => {
-      process.on(signal, () => gracefulShutdown(server, signal));
+      process.on(signal, () => gracefulShutdown(server, io, signal));
     });
 
     process.on('unhandledRejection', (reason, promise) => {
       logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-      gracefulShutdown(server, 'unhandledRejection');
+      gracefulShutdown(server, io, 'unhandledRejection');
     });
 
     process.on('uncaughtException', (err) => {
       logger.error('Uncaught Exception:', err);
-      gracefulShutdown(server, 'uncaughtException');
+      gracefulShutdown(server, io, 'uncaughtException');
     });
 
   } catch (err) {

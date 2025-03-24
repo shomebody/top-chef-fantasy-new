@@ -1,7 +1,9 @@
-import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
+// client/src/context/SocketContext.jsx
+import React, { createContext, useState, useEffect, useMemo } from 'react';
 import { io } from 'socket.io-client';
-import { useAuth } from '../hooks/useAuth.jsx';
+import { useAuth } from '../hooks/useAuth.jsx'; // Assuming .jsx or adjusted import
 
+// Socket event constants (mirroring server)
 export const EVENTS = {
   CONNECTION: 'connection',
   DISCONNECT: 'disconnect',
@@ -9,129 +11,99 @@ export const EVENTS = {
   LEAVE_LEAGUE: 'leave_league',
   SEND_MESSAGE: 'send_message',
   CHAT_MESSAGE: 'chat_message',
+  CHEF_UPDATE: 'chef_update',
+  LEAGUE_UPDATE: 'league_update',
   USER_TYPING: 'user_typing',
   USER_JOINED: 'user_joined',
   USER_LEFT: 'user_left',
-  CHEF_UPDATE: 'chef_update',
-  LEAGUE_UPDATE: 'league_update',
-  SCORE_UPDATE: 'score_update'
+  SCORE_UPDATE: 'score_update',
 };
 
+// Create context with default values
 export const SocketContext = createContext({
   socket: null,
-  connected: false,
-  EVENTS,
+  isConnected: false,
   joinLeague: () => {},
   leaveLeague: () => {},
   sendMessage: () => {},
-  sendTyping: () => {}
+  sendTypingIndicator: () => {},
 });
 
-export const SocketProvider = ({ children }) => {
+// Socket Provider Component
+export function SocketProvider({ children }) {
   const [socket, setSocket] = useState(null);
-  const [connected, setConnected] = useState(false);
-  const { user, isAuthenticated } = useAuth();
+  const [isConnected, setIsConnected] = useState(false);
+  const { getToken } = useAuth();
 
+  // Initialize socket connection
   useEffect(() => {
-    if (!isAuthenticated || !user) return;
+    const token = getToken();
+    if (!token) return; // Wait for auth token
 
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
-    
-    const getToken = async () => {
-      try {
-        // If using Firebase Auth, get the auth token
-        return await auth.currentUser?.getIdToken();
-      } catch (error) {
-        console.error('Error getting auth token:', error);
-        return localStorage.getItem('token'); // Fallback to stored token
-      }
-    };
-    
-    const setupSocket = async () => {
-      const token = await getToken();
-      
-      const socketInstance = io(socketUrl, {
-        auth: { token },
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000
-      });
-
-      socketInstance.on('connect', () => {
-        console.log('Socket connected');
-        setConnected(true);
-      });
-
-      socketInstance.on('disconnect', () => {
-        console.log('Socket disconnected');
-        setConnected(false);
-      });
-
-      socketInstance.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
-        setConnected(false);
-      });
-
-      setSocket(socketInstance);
-      
-      return socketInstance;
-    };
-    
-    let socketInstance;
-    setupSocket().then(instance => {
-      socketInstance = instance;
+    const newSocket = io(process.env.VITE_SERVER_URL || 'http://localhost:5000', {
+      auth: { token },
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
     });
 
-    return () => {
-      console.log('Cleaning up socket connection');
-      if (socketInstance) {
-        socketInstance.disconnect();
-      }
-      setSocket(null);
-      setConnected(false);
-    };
-  }, [isAuthenticated, user]);
+    newSocket.on(EVENTS.CONNECTION, () => {
+      setIsConnected(true);
+      console.log('Socket connected:', newSocket.id);
+    });
 
-  const joinLeague = useCallback((leagueId) => {
-    if (socket && connected && leagueId) {
-      console.log(`Joining league: ${leagueId}`);
+    newSocket.on(EVENTS.DISCONNECT, () => {
+      setIsConnected(false);
+      console.log('Socket disconnected');
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.close();
+      setSocket(null);
+      setIsConnected(false);
+    };
+  }, [getToken]); // Depend on getToken to re-run if token changes
+
+  // Join a league
+  const joinLeague = (leagueId) => {
+    if (socket && isConnected) {
       socket.emit(EVENTS.JOIN_LEAGUE, { leagueId });
     }
-  }, [socket, connected]);
+  };
 
-  const leaveLeague = useCallback((leagueId) => {
-    if (socket && connected && leagueId) {
-      console.log(`Leaving league: ${leagueId}`);
+  // Leave a league
+  const leaveLeague = (leagueId) => {
+    if (socket && isConnected) {
       socket.emit(EVENTS.LEAVE_LEAGUE, { leagueId });
     }
-  }, [socket, connected]);
+  };
 
-  const sendMessage = useCallback((message) => {
-    if (socket && connected && message) {
-      console.log('Sending message:', message);
-      socket.emit(EVENTS.SEND_MESSAGE, message);
+  // Send a message
+  const sendMessage = (message) => {
+    if (socket && isConnected) {
+      socket.emit(EVENTS.SEND_MESSAGE, { ...message, type: message.type || 'text' });
     }
-  }, [socket, connected]);
+  };
 
-  const sendTyping = useCallback((leagueId) => {
-    if (socket && connected && leagueId) {
+  // Send typing indicator
+  const sendTypingIndicator = (leagueId) => {
+    if (socket && isConnected) {
       socket.emit(EVENTS.USER_TYPING, { leagueId });
     }
-  }, [socket, connected]);
+  };
 
+  // Define context value
   const contextValue = useMemo(() => ({
     socket,
-    connected,
-    EVENTS,
+    isConnected,
     joinLeague,
     leaveLeague,
     sendMessage,
-    sendTyping
-  }), [socket, connected, joinLeague, leaveLeague, sendMessage, sendTyping]);
+    sendTypingIndicator,
+  }), [socket, isConnected]);
 
-  return (
-    <SocketContext.Provider value={value}>
-      {children}
-    </SocketContext.Provider>
-  );
-};
+  // Fixed provider with contextValue
+  return <SocketContext.Provider value={contextValue}>{children}</SocketContext.Provider>;
+}

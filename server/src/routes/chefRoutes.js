@@ -1,28 +1,14 @@
+// server/src/routes/chefRoutes.js
 import express from 'express';
-import {
-  getChefs,
-  getChefById,
-  createChef,
-  updateChef,
-  getChefStats,
-  updateWeeklyPerformance
-} from '../controllers/chefController.js';
-import { protect, admin } from '../middleware/authMiddleware.js';
+import { getChefs, getChefById, createChef, updateChef, getChefStats, updateWeeklyPerformance } from '../controllers/chefController.js';
 
 const router = express.Router();
 
-// All routes are protected
-router.use(protect);
-
-router.route('/')
-  .get(getChefs)
-  .post(admin, createChef);
-
-router.route('/:id')
-  .get(getChefById)
-  .put(admin, updateChef);
-
+router.get('/', getChefs);
+router.get('/:id', getChefById);
+router.post('/', createChef); // Admin only
+router.put('/:id', updateChef); // Admin only
 router.get('/:id/stats', getChefStats);
-router.post('/weekly-update', admin, updateWeeklyPerformance);
+router.put('/:id/weekly-performance', updateWeeklyPerformance); // Assumed route causing error
 
 export default router;

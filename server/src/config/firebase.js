@@ -1,23 +1,29 @@
+// server/src/config/firebase.js
 import admin from 'firebase-admin';
 import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import path from 'path';
+import fs from 'fs';
 
+// Load environment variables
 dotenv.config();
 
-// Initialize Firebase Admin with service account
-// The service account key should be stored securely
-const serviceAccount = JSON.parse(
-  process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}'
-);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const serviceAccountPath = path.join(__dirname, '../../firebase-service-account.json');
 
-// Initialize the app
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET
-});
+try {
+  const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+  
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${serviceAccount.project_id}.appspot.com`,
+  });
+} catch (error) {
+  console.error(`Error initializing Firebase Admin: ${error.message}`, { stack: error.stack });
+  process.exit(1);
+}
 
-// Export the admin instances
-const auth = admin.auth();
-const db = admin.firestore();
-const storage = admin.storage();
-
-export { admin, auth, db, storage };
+export const auth = admin.auth();
+export const db = admin.firestore();
+export const storage = admin.storage();
+export default admin; // Default export for admin

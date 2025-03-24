@@ -37,3 +37,8 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# Firebase credentials
+firebase-service-account.json
+*-service-account.json
+service-account*.json
