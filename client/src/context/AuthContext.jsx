@@ -150,5 +150,5 @@ export function AuthProvider({ children }) {
   setError: (message) => setError(message)
 }), [user, isAuthenticated, loading, error, login, logout, register, updateProfile]);
 
-return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+return <AuthContext>{value}{children}</AuthContext>;
 }
