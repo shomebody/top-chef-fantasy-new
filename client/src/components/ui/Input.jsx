@@ -1,22 +1,26 @@
+// @ts-nocheck
 import React, { forwardRef } from 'react';
 
 /**
  * Input component
  */
-const Input = forwardRef(({
-  label = '',
-  error = '',
-  type = 'text',
-  id = '',
-  name = '',
-  placeholder = '',
-  required = false,
-  disabled = false,
-  helper = '',
-  className = '',
-  onChange = () => {},
-  ...props
-}, ref) => {
+const Input = forwardRef(function Input(props, ref) {
+  // Destructure props with defaults after function declaration
+  const {
+    label = '',
+    error = '',
+    type = 'text',
+    id = '',
+    name = '',
+    placeholder = '',
+    required = false,
+    disabled = false,
+    helper = '',
+    className = '',
+    onChange = () => {},
+    ...rest
+  } = props;
+
   const inputId = id || name || `input-${Math.random().toString(36).substr(2, 9)}`;
 
   const inputClasses = `w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} ${disabled ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : 'bg-white dark:bg-gray-800'} dark:text-white ${className}`;
@@ -41,7 +45,7 @@ const Input = forwardRef(({
         onChange={onChange}
         aria-invalid={!!error}
         aria-describedby={error ? `${inputId}-error` : helper ? `${inputId}-helper` : undefined}
-        {...props}
+        {...rest}
       />
       {error && (
         <p className="mt-1 text-sm text-red-600 dark:text-red-400" id={`${inputId}-error`}>
