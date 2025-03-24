@@ -14,7 +14,7 @@ const AuthService = {
       setToken(response.data.token);
     }
     return response.data;
-  }
+  },
   
   // Login user
   login: async (email, password) => {
@@ -23,22 +23,22 @@ const AuthService = {
       setToken(response.data.token);
     }
     return response.data;
-  }
+  },
   
   // Logout user
   logout: () => {
     removeToken();
-  }
+  },
   
   // Get current user profile
   getCurrentUser: async () => {
     return await api.get('/auth/profile');
-  }
+  },
   
   // Update user profile
   updateProfile: async (userData) => {
     return await api.put('/auth/profile', userData);
-  }
+  },
   
   // Check if user is authenticated
   isAuthenticated: () => {

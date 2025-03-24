@@ -27,7 +27,7 @@ export const getLeagueMessages = asyncHandler(async (req, res) => {
   }
   
   // Build query
-  let query = { ``league:${leagueId}`${leagueId}` leagueId };
+  let query = { league: leagueId };
   
   if (before) {
     query.createdAt = { $lt: new Date(before) };
@@ -42,11 +42,11 @@ export const getLeagueMessages = asyncHandler(async (req, res) => {
   // Mark messages as read
   await Message.updateMany(
     {
-      ``league:${leagueId}`${leagueId}` leagueId,
+      league: leagueId,
       readBy: { $ne: req.user._id }
-    }
+    },
     {
-      $addToSet: {readBy: req.user._id }
+      $addToSet: { readBy: req.user._id }
     }
   );
   
@@ -78,7 +78,7 @@ export const createMessage = asyncHandler(async (req, res) => {
   
   // Create message
   const message = await Message.create({
-    ``league:${leagueId}`${leagueId}` leagueId,
+    league: leagueId,
     sender: req.user._id,
     content,
     type,
@@ -154,11 +154,10 @@ export const getUnreadCount = asyncHandler(async (req, res) => {
   
   // Count unread messages
   const unreadCount = await Message.countDocuments({
-    ``league:${leagueId}`${leagueId}` leagueId,
-    sender: { $ne: req.user._id }
+    league: leagueId,
+    sender: { $ne: req.user._id },
     readBy: { $ne: req.user._id }
   });
   
   res.json({ unreadCount });
 });
-

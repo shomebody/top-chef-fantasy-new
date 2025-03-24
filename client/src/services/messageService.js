@@ -8,22 +8,22 @@ const MessageService = {
       params.before = before;
     }
     
-    return await api.get(/messages/, { params });
-  }
+    return await api.get(`/messages/${leagueId}`, { params });
+  },
   
   // Send a message
   sendMessage: async (leagueId, content, type = 'text') => {
     return await api.post('/messages', { leagueId, content, type });
-  }
+  },
   
   // Add reaction to a message
   addReaction: async (messageId, reaction) => {
-    return await api.post(/messages//reaction, { reaction });
-  }
+    return await api.post(`/messages/${messageId}/reaction`, { reaction });
+  },
   
   // Get unread message count
   getUnreadCount: async (leagueId) => {
-    return await api.get(/messages/unread/);
+    return await api.get(`/messages/unread/${leagueId}`);
   }
 };
 

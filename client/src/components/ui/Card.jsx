@@ -2,9 +2,9 @@ import React from 'react';
 
 const Card = ({ 
   children, 
-  title, 
-  subtitle, 
-  action,
+  title = '',
+  subtitle = '',
+  action = null,
   className = '',
   padding = 'md',
   hover = false,

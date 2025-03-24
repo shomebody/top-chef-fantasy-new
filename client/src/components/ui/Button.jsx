@@ -9,7 +9,6 @@ const Button = ({
   disabled = false, 
   icon = null,
   onClick = () => {},
-  // Type is restricted to valid button types
   type = 'button', 
   ...props 
 }) => {

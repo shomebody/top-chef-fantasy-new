@@ -22,27 +22,16 @@ import { forwardRef } from 'react';
  * @returns {JSX.Element}
  */
 const Input = forwardRef(({
-  // @ts-ignore
   label = '',
-  // @ts-ignore
   error = '',
-  // @ts-ignore
   type = 'text',
-  // @ts-ignore
   id = '',
-  // @ts-ignore
   name = '',
-  // @ts-ignore
   placeholder = '',
-  // @ts-ignore
   required = false,
-  // @ts-ignore
   disabled = false,
-  // @ts-ignore
   helper = '',
-  // @ts-ignore
   className = '',
-  // @ts-ignore
   onChange = () => {},
   ...props
 }, ref) => {

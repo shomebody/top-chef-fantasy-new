@@ -1,4 +1,3 @@
-// Updated LeagueDetail.jsx
 import React, { useEffect, useState } from 'react';
 import { useParams, Navigate, Link } from 'react-router-dom';
 import { useLeague } from '../hooks/useLeague.jsx';
@@ -9,8 +8,8 @@ import Button from '../components/ui/Button.jsx';
 
 const LeagueDetail = () => {
   const { id } = useParams();
-  const { leagues, currentLeague, leaderboard, loading, error, fetchLeagueDetails, switchLeague } = useLeague();
-  const { user } = useAuth();
+  const { leagues = [], currentLeague = null, leaderboard = [], loading = false, error = null, fetchLeagueDetails = () => {}, switchLeague = () => {} } = useLeague();
+  const { user = null } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [chatInput, setChatInput] = useState('');
   const [chatError, setChatError] = useState('');
@@ -20,7 +19,9 @@ const LeagueDetail = () => {
   const { 
     messages = [], 
     sendMessage = () => {}, 
-    typingUsers = []
+    typingUsers = [],
+    loading: chatLoading = false,
+    error: chatFetchError = null
   } = useChat(id);
 
   useEffect(() => {
@@ -28,6 +29,7 @@ const LeagueDetail = () => {
       if (!currentLeague || currentLeague._id !== id) {
         switchLeague(id);
       }
+      
       fetchLeagueDetails(id)
         .catch(err => {
           console.error('Fetch league details failed:', err);
@@ -36,6 +38,7 @@ const LeagueDetail = () => {
     }
   }, [id, currentLeague, fetchLeagueDetails, switchLeague]);
 
+  // Check if the league exists in the user's leagues
   const leagueExists = leagues.some((league) => league._id === id);
 
   if (!leagueExists && !loading) {
@@ -51,7 +54,7 @@ const LeagueDetail = () => {
         setChatError('');
       } catch (err) {
         console.error('Chat send error:', err);
-        setChatError('Failed to send message');
+        setChatError('Failed to send message. Please try again.');
       }
     }
   };
@@ -95,18 +98,42 @@ const LeagueDetail = () => {
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
         <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{currentLeague?.name}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{currentLeague?.name || 'League'}</h1>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Season {currentLeague?.season} • {currentLeague?.members?.length || 0} Members
+              Season {currentLeague?.season || ''} • {currentLeague?.members?.length || 0} Members
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button variant="outline" size="sm">
-              Invite
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                if (currentLeague?.inviteCode) {
+                  navigator.clipboard.writeText(currentLeague.inviteCode)
+                    .then(() => alert('Invite code copied!'))
+                    .catch(err => console.error('Failed to copy:', err));
+                }
+              }}
+            >
+              Copy Invite Code
             </Button>
-            <Button variant="primary" size="sm">
-              {currentLeague?.status === 'draft' ? 'Start Draft' : 'Manage League'}
-            </Button>
+            {isLeagueAdmin && (
+              <Button 
+                variant="primary" 
+                size="sm"
+                onClick={() => {
+                  if (currentLeague?.status === 'draft') {
+                    // Add draft start logic
+                    console.log('Starting draft...');
+                  } else {
+                    // Set active tab to settings
+                    setActiveTab('settings');
+                  }
+                }}
+              >
+                {currentLeague?.status === 'draft' ? 'Start Draft' : 'Manage League'}
+              </Button>
+            )}
           </div>
         </div>
         <div className="mt-4">
@@ -117,7 +144,7 @@ const LeagueDetail = () => {
                 : 'bg-green-100 text-green-800'
             }`}
           >
-            {currentLeague?.status} • Week {currentLeague?.currentWeek || 'N/A'}
+            {currentLeague?.status || 'Unknown'} • Week {currentLeague?.currentWeek || 'N/A'}
           </span>
         </div>
       </div>
@@ -128,6 +155,7 @@ const LeagueDetail = () => {
           {['overview', 'members', 'settings', 'chat'].map((tab) => (
             <button
               key={tab}
+              type="button"
               className={`flex-1 px-4 py-2 text-sm font-medium ${
                 activeTab === tab
                   ? 'border-b-2 border-blue-500 text-blue-500'
@@ -147,11 +175,11 @@ const LeagueDetail = () => {
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card title="League Status">
-                  <div className="text-3xl font-bold mb-2 capitalize">{currentLeague?.status}</div>
+                  <div className="text-3xl font-bold mb-2 capitalize">{currentLeague?.status || 'Unknown'}</div>
                   <p className="text-gray-600 dark:text-gray-400">
                     {currentLeague?.status === 'draft'
                       ? 'Draft in progress'
-                      : `Week ${currentLeague?.currentWeek} of competition`}
+                      : `Week ${currentLeague?.currentWeek || '?'} of competition`}
                   </p>
                 </Card>
                 <Card title="Scoring System">
@@ -184,6 +212,7 @@ const LeagueDetail = () => {
                     onClick={() => {
                       if (currentLeague?.inviteCode) {
                         navigator.clipboard.writeText(currentLeague.inviteCode)
+                          .then(() => alert('Invite code copied!'))
                           .catch(err => console.error('Failed to copy:', err));
                       }
                     }}
@@ -214,18 +243,18 @@ const LeagueDetail = () => {
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                       {leaderboard && leaderboard.length > 0 ? (
                         leaderboard.map((entry, index) => (
-                          <tr key={entry.user._id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                          <tr key={entry.user._id || index} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                             <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                               {index + 1}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                              {entry.user.name}
+                              {entry.user.name || 'Unknown'}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                              {entry.score}
+                              {entry.score || 0}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                              {entry.rosterCount} / {currentLeague?.maxRosterSize || 'N/A'}
+                              {entry.rosterCount || 0} / {currentLeague?.maxRosterSize || 'N/A'}
                             </td>
                           </tr>
                         ))
@@ -252,22 +281,22 @@ const LeagueDetail = () => {
               {currentLeague?.members && currentLeague.members.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {currentLeague.members.map((member) => (
-                    <Card key={member.user._id}>
+                    <Card key={member.user._id || Math.random().toString()}>
                       <div className="flex items-center space-x-4">
                         <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-700 dark:text-gray-300 font-medium">
                           {member.user.name?.charAt(0) || '?'}
                         </div>
                         <div>
-                          <h3 className="font-medium text-gray-900 dark:text-white">{member.user.name}</h3>
+                          <h3 className="font-medium text-gray-900 dark:text-white">{member.user.name || 'Unknown'}</h3>
                           <div className="flex items-center space-x-2 text-sm">
                             <span
                               className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
                                 member.role === 'owner' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
                               }`}
                             >
-                              {member.role}
+                              {member.role || 'member'}
                             </span>
-                            <span className="text-gray-600 dark:text-gray-400">Score: {member.score}</span>
+                            <span className="text-gray-600 dark:text-gray-400">Score: {member.score || 0}</span>
                           </div>
                         </div>
                       </div>
@@ -289,71 +318,93 @@ const LeagueDetail = () => {
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
                   Only league owners and admins can modify league settings.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      League Name
-                    </label>
-                    <input
-                      type="text"
-                      value={currentLeague?.name || ''}
-                      readOnly={!isLeagueAdmin}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                    />
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  // Implement form submission logic here
+                  console.log('Settings form submitted');
+                  
+                  // Example implementation (you'd need to add state for these fields)
+                  // const payload = {
+                  //   name: leagueName,
+                  //   maxMembers: parseInt(maxMembers),
+                  //   maxRosterSize: parseInt(maxRosterSize),
+                  // };
+                  // 
+                  // api.put(`/leagues/${currentLeague?._id}`, payload)
+                  //   .then(() => setSuccess("League updated successfully"))
+                  //   .catch(err => setLocalError(err.message || "Failed to update league"));
+                }}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        League Name
+                      </label>
+                      <input
+                        type="text"
+                        defaultValue={currentLeague?.name || ''}
+                        readOnly={!isLeagueAdmin}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Season
+                      </label>
+                      <input
+                        type="number"
+                        defaultValue={currentLeague?.season || ''}
+                        readOnly={!isLeagueAdmin}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Max Members
+                      </label>
+                      <input
+                        type="number"
+                        defaultValue={currentLeague?.maxMembers || ''}
+                        readOnly={!isLeagueAdmin}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Max Roster Size
+                      </label>
+                      <input
+                        type="number"
+                        defaultValue={currentLeague?.maxRosterSize || ''}
+                        readOnly={!isLeagueAdmin}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Season
-                    </label>
-                    <input
-                      type="number"
-                      value={currentLeague?.season || ''}
-                      readOnly={!isLeagueAdmin}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Max Members
-                    </label>
-                    <input
-                      type="number"
-                      value={currentLeague?.maxMembers || ''}
-                      readOnly={!isLeagueAdmin}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Max Roster Size
-                    </label>
-                    <input
-                      type="number"
-                      value={currentLeague?.maxRosterSize || ''}
-                      readOnly={!isLeagueAdmin}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                    />
-                  </div>
-                </div>
-                <Button 
-                  variant="primary" 
-                  className="mt-6" 
-                  disabled={!isLeagueAdmin}
-                >
-                  Update Settings
-                </Button>
+                  <Button 
+                    type="submit"
+                    variant="primary" 
+                    className="mt-6" 
+                    disabled={!isLeagueAdmin}
+                  >
+                    Update Settings
+                  </Button>
+                </form>
               </Card>
               <Card title="Danger Zone" className="border border-red-300 dark:border-red-700">
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
                   These actions cannot be undone. Please be certain.
                 </p>
-                <Button variant="danger" onClick={() => {
-                  // Implement leave league with confirmation
-                  if (window.confirm("Are you sure you want to leave this league?")) {
-                    // API call would go here
-                    console.log("User confirmed leaving league");
-                  }
-                }}>
+                <Button 
+                  variant="danger" 
+                  type="button"
+                  onClick={() => {
+                    // Implement leave league with confirmation
+                    if (window.confirm("Are you sure you want to leave this league?")) {
+                      // API call would go here
+                      console.log("User confirmed leaving league");
+                    }
+                  }}
+                >
                   Leave League
                 </Button>
               </Card>
@@ -371,16 +422,16 @@ const LeagueDetail = () => {
               <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 h-96 overflow-y-auto flex flex-col space-y-4">
                 {messages && messages.length > 0 ? (
                   messages.map((message) => (
-                    <div key={message._id} className="flex flex-col">
+                    <div key={message._id || Math.random().toString()} className="flex flex-col">
                       <div className="flex items-center space-x-2">
                         <div className="font-medium text-gray-900 dark:text-white">
                           {message.sender?.name || 'Unknown'}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(message.createdAt).toLocaleTimeString()}
+                          {message.createdAt ? new Date(message.createdAt).toLocaleTimeString() : ''}
                         </div>
                       </div>
-                      <div className="pl-6 text-gray-700 dark:text-gray-300">{message.content}</div>
+                      <div className="pl-6 text-gray-700 dark:text-gray-300">{message.content || ''}</div>
                     </div>
                   ))
                 ) : (
@@ -391,7 +442,7 @@ const LeagueDetail = () => {
                 {typingUsers && typingUsers.length > 0 && (
                   <div className="text-gray-500 dark:text-gray-400 text-sm">
                     {typingUsers.length === 1
-                      ? `${typingUsers[0].username} is typing...`
+                      ? `${typingUsers[0].username || 'Someone'} is typing...`
                       : `${typingUsers.length} people are typing...`}
                   </div>
                 )}
