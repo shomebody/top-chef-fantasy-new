@@ -47,8 +47,8 @@ export const ThemeProvider = ({ children }) => {
   };
 
   return (
-    <ThemeContext value={contextValue}>
+    <ThemeContext.Provider value={Value}>
       {children}
-    </ThemeContext>
+    </ThemeContext.Provider>
   );
 };

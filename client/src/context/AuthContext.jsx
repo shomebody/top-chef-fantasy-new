@@ -146,8 +146,8 @@ export function AuthProvider({ children }) {
   }), [user, isAuthenticated, loading, error, login, logout, register, updateProfile]);
 
   return (
-    <AuthContext value={value}>
-      {children}
-    </AuthContext>
-  );
+<AuthContext.Provider value={value}>
+  {children}
+</AuthContext.Provider>
+);
 }

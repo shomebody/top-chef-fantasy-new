@@ -130,8 +130,8 @@ export const SocketProvider = ({ children }) => {
   }), [socket, connected, joinLeague, leaveLeague, sendMessage, sendTyping]);
 
   return (
-    <SocketContext value={contextValue}>
+    <SocketContext.Provider value={value}>
       {children}
-    </SocketContext>
+    </SocketContext.Provider>
   );
 };
