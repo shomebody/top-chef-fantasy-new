@@ -1,9 +1,7 @@
-// client/src/context/SocketContext.jsx
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from '../hooks/useAuth.jsx';
 
-// Socket events - consistent naming for both client and server
 export const EVENTS = {
   CONNECTION: 'connection',
   DISCONNECT: 'disconnect',
@@ -19,7 +17,6 @@ export const EVENTS = {
   SCORE_UPDATE: 'score_update'
 };
 
-// Create context with default values
 export const SocketContext = createContext({
   socket: null,
   connected: false,
@@ -35,51 +32,66 @@ export const SocketProvider = ({ children }) => {
   const [connected, setConnected] = useState(false);
   const { user, isAuthenticated } = useAuth();
 
-  // Initialize socket connection
   useEffect(() => {
     if (!isAuthenticated || !user) return;
 
     const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
     
-    // Initialize socket with auth token
-    const socketInstance = io(socketUrl, {
-      auth: {
-        token: localStorage.getItem('token')
-      },
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000
+    const getToken = async () => {
+      try {
+        // If using Firebase Auth, get the auth token
+        return await auth.currentUser?.getIdToken();
+      } catch (error) {
+        console.error('Error getting auth token:', error);
+        return localStorage.getItem('token'); // Fallback to stored token
+      }
+    };
+    
+    const setupSocket = async () => {
+      const token = await getToken();
+      
+      const socketInstance = io(socketUrl, {
+        auth: { token },
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000
+      });
+
+      socketInstance.on('connect', () => {
+        console.log('Socket connected');
+        setConnected(true);
+      });
+
+      socketInstance.on('disconnect', () => {
+        console.log('Socket disconnected');
+        setConnected(false);
+      });
+
+      socketInstance.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
+        setConnected(false);
+      });
+
+      setSocket(socketInstance);
+      
+      return socketInstance;
+    };
+    
+    let socketInstance;
+    setupSocket().then(instance => {
+      socketInstance = instance;
     });
 
-    // Set up event listeners
-    socketInstance.on('connect', () => {
-      console.log('Socket connected');
-      setConnected(true);
-    });
-
-    socketInstance.on('disconnect', () => {
-      console.log('Socket disconnected');
-      setConnected(false);
-    });
-
-    socketInstance.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
-      setConnected(false);
-    });
-
-    // Save socket instance
-    setSocket(socketInstance);
-
-    // Cleanup function
     return () => {
       console.log('Cleaning up socket connection');
-      socketInstance.disconnect();
+      if (socketInstance) {
+        socketInstance.disconnect();
+      }
       setSocket(null);
       setConnected(false);
     };
   }, [isAuthenticated, user]);
 
-  // Join a league room
   const joinLeague = useCallback((leagueId) => {
     if (socket && connected && leagueId) {
       console.log(`Joining league: ${leagueId}`);
@@ -87,7 +99,6 @@ export const SocketProvider = ({ children }) => {
     }
   }, [socket, connected]);
 
-  // Leave a league room
   const leaveLeague = useCallback((leagueId) => {
     if (socket && connected && leagueId) {
       console.log(`Leaving league: ${leagueId}`);
@@ -95,7 +106,6 @@ export const SocketProvider = ({ children }) => {
     }
   }, [socket, connected]);
 
-  // Send a chat message
   const sendMessage = useCallback((message) => {
     if (socket && connected && message) {
       console.log('Sending message:', message);
@@ -103,14 +113,12 @@ export const SocketProvider = ({ children }) => {
     }
   }, [socket, connected]);
 
-  // Send typing indicator
   const sendTyping = useCallback((leagueId) => {
     if (socket && connected && leagueId) {
       socket.emit(EVENTS.USER_TYPING, { leagueId });
     }
   }, [socket, connected]);
 
-  // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
     socket,
     connected,
@@ -121,6 +129,9 @@ export const SocketProvider = ({ children }) => {
     sendTyping
   }), [socket, connected, joinLeague, leaveLeague, sendMessage, sendTyping]);
 
-  // Use React 19's new context API syntax
-  return <SocketContext>{contextValue}{children}</SocketContext>;
+  return (
+    <SocketContext value={contextValue}>
+      {children}
+    </SocketContext>
+  );
 };

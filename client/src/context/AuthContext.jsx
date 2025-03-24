@@ -1,9 +1,10 @@
 import React, { createContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../config/firebase';
 import AuthService from '../services/authService';
 
-export const AuthContext = React.createContext({
+export const AuthContext = createContext({
   user: null,
   isAuthenticated: false,
   loading: true,
@@ -16,13 +17,11 @@ export const AuthContext = React.createContext({
 });
 
 export function AuthProvider({ children }) {
-  // States with proper initialization
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Monitor auth state
   useEffect(() => {
     let isMounted = true;
     
@@ -31,11 +30,13 @@ export function AuthProvider({ children }) {
       
       if (firebaseUser && isMounted) {
         try {
-          // Get user profile from Firestore
-          const userData = await AuthService.getCurrentUser();
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           
-          if (isMounted) {
-            setUser(userData);
+          if (userDoc.exists() && isMounted) {
+            setUser({
+              _id: firebaseUser.uid,
+              ...userDoc.data()
+            });
             setIsAuthenticated(true);
           }
         } catch (error) {
@@ -65,7 +66,6 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  // Login function
   const login = useCallback(async (email, password) => {
     try {
       setLoading(true);
@@ -85,7 +85,6 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // Logout function
   const logout = useCallback(async () => {
     try {
       await AuthService.logout();
@@ -97,7 +96,6 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // Register function
   const register = useCallback(async (userData) => {
     try {
       setLoading(true);
@@ -117,7 +115,6 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // Update user profile
   const updateProfile = useCallback(async (userData) => {
     try {
       setLoading(true);
@@ -136,19 +133,21 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // Memoize context value
- // Memoize value to prevent unnecessary re-renders
- const value = useMemo(() => ({
-  user,
-  isAuthenticated,
-  loading,
-  error,
-  login,
-  logout,
-  register,
-  updateProfile,
-  setError: (message) => setError(message)
-}), [user, isAuthenticated, loading, error, login, logout, register, updateProfile]);
+  const value = useMemo(() => ({
+    user,
+    isAuthenticated,
+    loading,
+    error,
+    login,
+    logout,
+    register,
+    updateProfile,
+    setError: (message) => setError(message)
+  }), [user, isAuthenticated, loading, error, login, logout, register, updateProfile]);
 
-return <AuthContext>{value}{children}</AuthContext>;
+  return (
+    <AuthContext value={value}>
+      {children}
+    </AuthContext>
+  );
 }

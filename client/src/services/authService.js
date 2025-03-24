@@ -1,16 +1,13 @@
-// client/src/services/authService.js
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   signOut,
-  updateProfile,
-  getAuth 
+  updateProfile as firebaseUpdateProfile
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
 const AuthService = {
-  // Register a new user
   register: async (userData) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(
@@ -19,12 +16,10 @@ const AuthService = {
         userData.password
       );
       
-      // Add display name
-      await updateProfile(userCredential.user, {
+      await firebaseUpdateProfile(userCredential.user, {
         displayName: userData.name
       });
       
-      // Create user document in Firestore
       await setDoc(doc(db, 'users', userCredential.user.uid), {
         name: userData.name,
         email: userData.email,
@@ -46,12 +41,10 @@ const AuthService = {
     }
   },
   
-  // Login user
   login: async (email, password) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
-      // Get user profile from Firestore
       const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
       
       if (userDoc.exists()) {
@@ -60,7 +53,7 @@ const AuthService = {
           _id: userCredential.user.uid,
           name: userData.name,
           email: userData.email,
-          isAdmin: userData.isAdmin
+          isAdmin: userData.isAdmin || false
         };
       } else {
         throw new Error('User profile not found');
@@ -71,7 +64,60 @@ const AuthService = {
     }
   },
   
-  // Other methods...
+  logout: async () => {
+    return signOut(auth);
+  },
+  
+  getCurrentUser: async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return null;
+      
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      if (userDoc.exists()) {
+        return {
+          _id: currentUser.uid,
+          ...userDoc.data()
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Get current user error:', error);
+      throw error;
+    }
+  },
+  
+  updateProfile: async (userData) => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('No user logged in');
+      
+      const userRef = doc(db, 'users', currentUser.uid);
+      
+      const updateData = {};
+      if (userData.name) updateData.name = userData.name;
+      if (userData.email) updateData.email = userData.email;
+      if (userData.avatar) updateData.avatar = userData.avatar;
+      
+      if (Object.keys(updateData).length > 0) {
+        await updateDoc(userRef, updateData);
+        
+        if (userData.name) {
+          await firebaseUpdateProfile(currentUser, {
+            displayName: userData.name
+          });
+        }
+      }
+      
+      return {
+        _id: currentUser.uid,
+        ...updateData
+      };
+    } catch (error) {
+      console.error('Update profile error:', error);
+      throw error;
+    }
+  }
 };
 
 export default AuthService;
