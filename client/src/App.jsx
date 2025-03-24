@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth.jsx';
 import { useTheme } from './hooks/useTheme.jsx';
 import { LeagueProvider } from './context/LeagueContext.jsx';
+import { ChefProvider } from './context/ChefContext.jsx';
 
 // Layouts
 import MainLayout from './layouts/MainLayout.jsx';
@@ -93,32 +94,34 @@ const App = () => {
   return (
     <div className={`app ${theme === 'dark' ? 'dark' : ''}`}>
       <LeagueProvider>
-        <Routes>
-          {/* Auth Routes */}
-          <Route element={<AuthLayout />}>
-            <Route
-              path="/login"
-              element={isAuthenticated ? <Navigate to="/" /> : <Login />}
-            />
-            <Route
-              path="/register"
-              element={isAuthenticated ? <Navigate to="/" /> : <Register />}
-            />
-          </Route>
-          {/* Protected Routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route element={<MainLayout />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/chefs" element={<ChefRoster />} />
-              <Route path="/leagues" element={<Leagues />} />
-              <Route path="/leagues/:id" element={<LeagueDetail />} />
-              <Route path="/schedule" element={<Schedule />} />
-              <Route path="/settings" element={<Settings />} />
+        <ChefProvider>
+          <Routes>
+            {/* Auth Routes */}
+            <Route element={<AuthLayout />}>
+              <Route
+                path="/login"
+                element={isAuthenticated ? <Navigate to="/" /> : <Login />}
+              />
+              <Route
+                path="/register"
+                element={isAuthenticated ? <Navigate to="/" /> : <Register />}
+              />
             </Route>
-          </Route>
-          {/* 404 Route */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+            {/* Protected Routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<MainLayout />}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/chefs" element={<ChefRoster />} />
+                <Route path="/leagues" element={<Leagues />} />
+                <Route path="/leagues/:id" element={<LeagueDetail />} />
+                <Route path="/schedule" element={<Schedule />} />
+                <Route path="/settings" element={<Settings />} />
+              </Route>
+            </Route>
+            {/* 404 Route */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </ChefProvider>
       </LeagueProvider>
     </div>
   );

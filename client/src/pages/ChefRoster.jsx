@@ -1,17 +1,14 @@
-import React, { useEffect, useState } from 'react';
+// client/src/pages/ChefRoster.jsx
+import React, { useState } from 'react';
+import { useChef } from '../hooks/useChef.jsx';
 import { useLeague } from '../hooks/useLeague.jsx';
 import Card from '../components/ui/Card.jsx';
 import Button from '../components/ui/Button.jsx';
 
 const ChefRoster = () => {
-  const { chefs, currentLeague, loading, error, fetchLeagueDetails } = useLeague();
+  const { chefs, loading, error } = useChef();
+  const { currentLeague } = useLeague();
   const [selectedChef, setSelectedChef] = useState(null);
-  
-  useEffect(() => {
-    if (currentLeague?._id) {
-      fetchLeagueDetails(currentLeague._id);
-    }
-  }, [currentLeague?._id, fetchLeagueDetails]);
   
   const handleSelectChef = (chef) => {
     setSelectedChef(chef);
