@@ -15,15 +15,26 @@ const Login = () => {
     e.preventDefault();
     setFormError('');
     
+    // Log login attempt for debugging
+    console.group('Login attempt');
+    console.log('Email:', email);
+    console.log('Password entered:', !!password);
+    
     if (!email || !password) {
       setFormError('Please fill in all fields');
+      console.log('Form validation failed: empty fields');
+      console.groupEnd();
       return;
     }
     
     try {
-      await login(email, password);
+      const result = await login(email, password);
+      console.log('Login successful:', !!result);
+      console.log('Token stored:', !!localStorage.getItem('token'));
+      console.groupEnd();
     } catch (err) {
-      console.error('Login error:', err);
+      console.error('Login error:', err.response?.data || err.message);
+      console.groupEnd();
     }
   };
 
@@ -103,4 +114,3 @@ const Login = () => {
 };
 
 export default Login;
-

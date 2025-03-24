@@ -12,24 +12,35 @@ export const AuthProvider = ({ children }) => {
   // Check if user is already logged in (from localStorage token)
   useEffect(() => {
     const checkAuth = async () => {
+      console.group('AUTH CHECK');
+      console.log('Starting auth check');
       try {
         const token = localStorage.getItem('token');
+        console.log('Token exists:', !!token);
         
         if (token) {
           // Set auth header
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          console.log('Set auth header');
           
           // Get user profile
+          console.log('Fetching user profile...');
           const response = await api.get('/auth/profile');
+          console.log('Profile response:', response.data);
           setUser(response.data);
           setIsAuthenticated(true);
+        } else {
+          console.log('No token found');
         }
       } catch (error) {
         console.error('Authentication error:', error);
+        console.error('Error details:', error.response?.data || error.message);
         localStorage.removeItem('token');
         setError('Session expired. Please log in again.');
       } finally {
         setLoading(false);
+        console.log('Auth check complete');
+        console.groupEnd();
       }
     };
     
@@ -41,12 +52,15 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
+      console.log('Login attempt with:', email);
       
       const response = await api.post('/auth/login', { email, password });
+      console.log('Login response received');
       const { token, ...userData } = response.data;
       
       // Set token in localStorage
       localStorage.setItem('token', token);
+      console.log('Token stored in localStorage');
       
       // Set auth header
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -57,6 +71,7 @@ export const AuthProvider = ({ children }) => {
       return userData;
     } catch (error) {
       console.error('Login error:', error);
+      console.error('Error response:', error.response?.data);
       setError(error.response?.data?.message || 'Login failed');
       throw error;
     } finally {

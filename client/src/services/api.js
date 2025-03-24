@@ -12,6 +12,7 @@ const api = axios.create({
 // Request interceptor for adding auth token
 api.interceptors.request.use(
   (config) => {
+    console.log(`API Request: ${config.method.toUpperCase()} ${config.url}`);
     const token = localStorage.getItem('token');
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
@@ -26,9 +27,13 @@ api.interceptors.request.use(
 
 // Response interceptor for handling errors
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log(`API Response: ${response.status} ${response.config.url}`);
+    return response;
+  },
   (error) => {
     console.error('Response Interceptor Error:', error);
+    console.error('Status:', error.response?.status, 'Data:', error.response?.data);
 
     const originalRequest = error.config;
 
