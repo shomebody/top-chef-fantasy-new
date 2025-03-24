@@ -1,5 +1,6 @@
+// client/src/hooks/useAuth.jsx
 import { useContext } from 'react';
-import { AuthContext } from '../context/AuthContext.jsx';
+import { AuthContext } from '../context/AuthContext';
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -7,9 +8,6 @@ export const useAuth = () => {
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  
-  // Log context for debugging
-  console.log('useAuth - context:', context);
   
   // Ensure required fields are always defined, React 19-friendly
   const safeContext = {

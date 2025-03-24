@@ -1,3 +1,4 @@
+// client/src/config/firebase.js (replace the current one)
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';

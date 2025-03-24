@@ -1,240 +1,126 @@
-import React, { createContext, useState, useEffect, useMemo } from 'react';
-import { collection, doc, onSnapshot, setDoc, updateDoc, arrayUnion, Timestamp, query, where, orderBy, limit } from 'firebase/firestore';
-import { db } from '../config/firebase';
+// client/src/context/SocketContext.jsx
+import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { io } from 'socket.io-client';
 import { useAuth } from '../hooks/useAuth.jsx';
 
-/**
- * @typedef {Object} ChatContextType
- * @property {Array} messages - List of chat messages
- * @property {boolean} loading - Loading state
- * @property {string|null} error - Error message if any
- * @property {Function} sendMessage - Function to send a message
- * @property {Function} joinLeague - Function to join a league chat
- * @property {Function} leaveLeague - Function to leave a league chat
- * @property {Array} typingUsers - List of users currently typing
- * @property {Function} sendTypingIndicator - Function to send typing status
- */
+// Socket events - consistent naming for both client and server
+export const EVENTS = {
+  CONNECTION: 'connection',
+  DISCONNECT: 'disconnect',
+  JOIN_LEAGUE: 'join_league',
+  LEAVE_LEAGUE: 'leave_league',
+  SEND_MESSAGE: 'send_message',
+  CHAT_MESSAGE: 'chat_message',
+  USER_TYPING: 'user_typing',
+  USER_JOINED: 'user_joined',
+  USER_LEFT: 'user_left',
+  CHEF_UPDATE: 'chef_update',
+  LEAGUE_UPDATE: 'league_update',
+  SCORE_UPDATE: 'score_update'
+};
 
 // Create context with default values
-export const ChatContext = createContext({
-  messages: [],
-  loading: false,
-  error: null,
-  sendMessage: () => {},
+export const SocketContext = createContext({
+  socket: null,
+  connected: false,
+  EVENTS,
   joinLeague: () => {},
   leaveLeague: () => {},
-  typingUsers: [],
-  sendTypingIndicator: () => {}
+  sendMessage: () => {},
+  sendTyping: () => {}
 });
 
-/**
- * Chat Provider Component
- * @param {Object} props - Component props
- * @param {React.ReactNode} props.children - Child components
- */
-export function ChatProvider({ children }) {
-  const [messages, setMessages] = useState([]);
-  const [currentLeagueId, setCurrentLeagueId] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [typingUsers, setTypingUsers] = useState([]);
-  const [messageListeners, setMessageListeners] = useState({});
-  const [typingListeners, setTypingListeners] = useState({});
-  
+export const SocketProvider = ({ children }) => {
+  const [socket, setSocket] = useState(null);
+  const [connected, setConnected] = useState(false);
   const { user, isAuthenticated } = useAuth();
 
-  // Join a league chat
-  const joinLeague = (leagueId) => {
-    if (leagueId && isAuthenticated) {
-      setCurrentLeagueId(leagueId);
-      fetchMessages(leagueId);
-      listenForTyping(leagueId);
-    }
-  };
+  // Initialize socket connection
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
 
-  // Leave a league chat
-  const leaveLeague = (leagueId) => {
-    if (leagueId && messageListeners[leagueId]) {
-      messageListeners[leagueId]();
-      typingListeners[leagueId]?.();
-      
-      setMessageListeners(prev => {
-        const updated = {...prev};
-        delete updated[leagueId];
-        return updated;
-      });
-      
-      setTypingListeners(prev => {
-        const updated = {...prev};
-        delete updated[leagueId];
-        return updated;
-      });
-      
-      setCurrentLeagueId(null);
-      setMessages([]);
-      setTypingUsers([]);
-    }
-  };
-
-  // Fetch messages for a league
-  const fetchMessages = (leagueId) => {
-    setLoading(true);
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
     
-    // Create a query for messages
-    const messagesQuery = query(
-      collection(db, 'messages'),
-      where('league', '==', leagueId),
-      orderBy('createdAt', 'desc'),
-      limit(50)
-    );
-    
-    // Listen for real-time updates
-    const unsubscribe = onSnapshot(
-      messagesQuery,
-      (snapshot) => {
-        const messageList = snapshot.docs.map(doc => ({
-          _id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate().toISOString() || new Date().toISOString()
-        })).reverse(); // To match the previous behavior
-        
-        setMessages(messageList);
-        setLoading(false);
-        setError(null);
+    // Initialize socket with auth token
+    const socketInstance = io(socketUrl, {
+      auth: {
+        token: localStorage.getItem('token')
       },
-      (err) => {
-        console.error('Error fetching messages:', err);
-        setError('Failed to load chat history');
-        setLoading(false);
-      }
-    );
-    
-    // Store the unsubscribe function
-    setMessageListeners(prev => ({
-      ...prev,
-      [leagueId]: unsubscribe
-    }));
-  };
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    });
 
-  // Listen for typing indicators
-  const listenForTyping = (leagueId) => {
-    const typingRef = collection(db, 'typing');
-    const typingQuery = query(
-      typingRef,
-      where('leagueId', '==', leagueId)
-    );
-    
-    const unsubscribe = onSnapshot(
-      typingQuery,
-      (snapshot) => {
-        const now = new Date();
-        const activeTypers = snapshot.docs
-          .map(doc => doc.data())
-          .filter(data => {
-            // Only show typing indicators for the last 3 seconds
-            const timestamp = data.timestamp?.toDate() || new Date(0);
-            const timeDiff = (now - timestamp) / 1000;
-            return timeDiff <= 3 && data.userId !== user?._id;
-          })
-          .map(data => ({
-            userId: data.userId,
-            username: data.username
-          }));
-        
-        setTypingUsers(activeTypers);
-      },
-      (err) => {
-        console.error('Error listening for typing:', err);
-      }
-    );
-    
-    setTypingListeners(prev => ({
-      ...prev,
-      [leagueId]: unsubscribe
-    }));
-  };
+    // Set up event listeners
+    socketInstance.on('connect', () => {
+      console.log('Socket connected');
+      setConnected(true);
+    });
 
-  // Send a message
-  const sendMessage = async (content, type = 'text') => {
-    if (!content || !currentLeagueId || !user) return;
-    
-    try {
-      const newMessage = {
-        league: currentLeagueId,
-        sender: user._id,
-        senderName: user.name,
-        content,
-        type,
-        reactions: {
-          likes: [],
-          hearts: []
-        },
-        readBy: [user._id],
-        createdAt: Timestamp.now()
-      };
-      
-      // Add message to Firestore
-      await setDoc(doc(collection(db, 'messages')), newMessage);
-      
-    } catch (err) {
-      console.error('Error sending message:', err);
-      setError('Failed to send message');
+    socketInstance.on('disconnect', () => {
+      console.log('Socket disconnected');
+      setConnected(false);
+    });
+
+    socketInstance.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+      setConnected(false);
+    });
+
+    // Save socket instance
+    setSocket(socketInstance);
+
+    // Cleanup function
+    return () => {
+      console.log('Cleaning up socket connection');
+      socketInstance.disconnect();
+      setSocket(null);
+      setConnected(false);
+    };
+  }, [isAuthenticated, user]);
+
+  // Join a league room
+  const joinLeague = useCallback((leagueId) => {
+    if (socket && connected && leagueId) {
+      console.log(`Joining league: ${leagueId}`);
+      socket.emit(EVENTS.JOIN_LEAGUE, { leagueId });
     }
-  };
+  }, [socket, connected]);
+
+  // Leave a league room
+  const leaveLeague = useCallback((leagueId) => {
+    if (socket && connected && leagueId) {
+      console.log(`Leaving league: ${leagueId}`);
+      socket.emit(EVENTS.LEAVE_LEAGUE, { leagueId });
+    }
+  }, [socket, connected]);
+
+  // Send a chat message
+  const sendMessage = useCallback((message) => {
+    if (socket && connected && message) {
+      console.log('Sending message:', message);
+      socket.emit(EVENTS.SEND_MESSAGE, message);
+    }
+  }, [socket, connected]);
 
   // Send typing indicator
-  const sendTypingIndicator = async () => {
-    if (!currentLeagueId || !user) return;
-    
-    try {
-      const typingId = `${currentLeagueId}_${user._id}`;
-      const typingRef = doc(db, 'typing', typingId);
-      
-      await setDoc(typingRef, {
-        leagueId: currentLeagueId,
-        userId: user._id,
-        username: user.name,
-        timestamp: Timestamp.now()
-      });
-      
-    } catch (err) {
-      console.error('Error sending typing indicator:', err);
+  const sendTyping = useCallback((leagueId) => {
+    if (socket && connected && leagueId) {
+      socket.emit(EVENTS.USER_TYPING, { leagueId });
     }
-  };
+  }, [socket, connected]);
 
-  // Clean up listeners on unmount
-  useEffect(() => {
-    return () => {
-      // Clean up all message listeners
-      Object.values(messageListeners).forEach(unsubscribe => {
-        if (typeof unsubscribe === 'function') {
-          unsubscribe();
-        }
-      });
-      
-      // Clean up all typing listeners
-      Object.values(typingListeners).forEach(unsubscribe => {
-        if (typeof unsubscribe === 'function') {
-          unsubscribe();
-        }
-      });
-    };
-  }, [messageListeners, typingListeners]);
-
-  // Memoize context value
+  // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
-    messages,
-    loading,
-    error,
+    socket,
+    connected,
+    EVENTS,
     joinLeague,
     leaveLeague,
     sendMessage,
-    typingUsers,
-    sendTypingIndicator
-  }), [messages, loading, error, typingUsers]);
+    sendTyping
+  }), [socket, connected, joinLeague, leaveLeague, sendMessage, sendTyping]);
 
-  // Correct React 19 context syntax
-  return (
-    <ChatContext>{contextValue}{children}</ChatContext>
-  );
-}
+  // Use React 19's new context API syntax
+  return <SocketContext>{contextValue}{children}</SocketContext>;
+};
