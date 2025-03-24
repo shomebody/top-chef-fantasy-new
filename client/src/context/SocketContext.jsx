@@ -1,7 +1,19 @@
 import React, { createContext, useState, useEffect, useMemo } from 'react';
-import { collection, doc, onSnapshot, setDoc, updateDoc, arrayUnion, Timestamp, query, where, orderBy } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, updateDoc, arrayUnion, Timestamp, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth.jsx';
+
+/**
+ * @typedef {Object} ChatContextType
+ * @property {Array} messages - List of chat messages
+ * @property {boolean} loading - Loading state
+ * @property {string|null} error - Error message if any
+ * @property {Function} sendMessage - Function to send a message
+ * @property {Function} joinLeague - Function to join a league chat
+ * @property {Function} leaveLeague - Function to leave a league chat
+ * @property {Array} typingUsers - List of users currently typing
+ * @property {Function} sendTypingIndicator - Function to send typing status
+ */
 
 // Create context with default values
 export const ChatContext = createContext({
@@ -15,6 +27,11 @@ export const ChatContext = createContext({
   sendTypingIndicator: () => {}
 });
 
+/**
+ * Chat Provider Component
+ * @param {Object} props - Component props
+ * @param {React.ReactNode} props.children - Child components
+ */
 export function ChatProvider({ children }) {
   const [messages, setMessages] = useState([]);
   const [currentLeagueId, setCurrentLeagueId] = useState(null);
@@ -216,9 +233,8 @@ export function ChatProvider({ children }) {
     sendTypingIndicator
   }), [messages, loading, error, typingUsers]);
 
+  // Correct React 19 context syntax
   return (
-    <ChatContext value={contextValue}>
-      {children}
-    </ChatContext>
+    <ChatContext>{contextValue}{children}</ChatContext>
   );
 }
