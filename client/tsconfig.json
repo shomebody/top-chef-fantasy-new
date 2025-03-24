@@ -1,27 +1,27 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ESNext", // Updated for latest JS features, safe with Vite
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"], // Updated to ESNext
     "module": "ESNext",
-    "skipLibCheck": true,
-    "allowJs": true,
-    "checkJs": true,
+    "skipLibCheck": true, // Speeds up compilation, avoids third-party type issues
+    "allowJs": false, // Encourage full TS adoption (rule: avoid .js with TS)
+    "checkJs": false, // Disabled since allowJs is false
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx",
-    "strict": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
+    "jsx": "react-jsx", // Essential for React 19
+    "strict": true, // Enable strict mode (rule: prioritize type system)
+    "noUnusedLocals": true, // Catch unused vars
+    "noUnusedParameters": true, // Catch unused params
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },
-    "typeRoots": ["./node_modules/@types", "./src/types"] // Added
+    "typeRoots": ["./node_modules/@types", "./src/types"]
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]

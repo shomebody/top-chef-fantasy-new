@@ -5,22 +5,25 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import mongoose from 'mongoose';
-import portfinder from 'portfinder'; // Added for dynamic port finding
-import { createLogger, format, transports } from 'winston'; // Advanced logging
-
-import connectDB from './config/db.js';
-import { notFound, errorHandler } from './middleware/errorMiddleware.js';
-import authRoutes from './routes/authRoutes.js';
-import chefRoutes from './routes/chefRoutes.js';
-import leagueRoutes from './routes/leagueRoutes.js';
-import challengeRoutes from './routes/challengeRoutes.js';
+import admin from 'firebase-admin';
+import portfinder from 'portfinder';
+import { createLogger, format, transports } from 'winston';
 import setupSocket from './socket/index.js';
 
 // Load environment variables
 dotenv.config();
 
-// Configure advanced logging with Winston
+// Initialize Firebase Admin
+admin.initializeApp({
+  credential: admin.credential.cert({
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+  }),
+});
+const db = admin.firestore();
+
+// Configure logging with Winston
 const logger = createLogger({
   level: process.env.NODE_ENV === 'development' ? 'debug' : 'info',
   format: format.combine(
@@ -40,32 +43,26 @@ const gracefulShutdown = (server, signal) => {
   logger.info(`Received ${signal}. Starting graceful shutdown...`);
   server.close(() => {
     logger.info('HTTP server closed.');
-    mongoose.connection.close(false, () => {
-      logger.info('MongoDB connection closed.');
-      process.exit(0);
-    });
+    // Firebase Admin doesn't require explicit connection close
+    process.exit(0);
   });
 };
 
 // Main server startup function
 const startServer = async () => {
   try {
-    // Connect to MongoDB with retry logic
-    await connectDB();
-    logger.info('MongoDB connected successfully');
-
     // Initialize Express app and HTTP server
     const app = express();
     const server = http.createServer(app);
 
-    // Configure Socket.IO with enhanced options
+    // Configure Socket.IO
     const io = new Server(server, {
       cors: {
-        origin: process.env.CLIENT_URL || 'http://localhost:5173', // Fallback for dev
+        origin: process.env.CLIENT_URL || 'http://localhost:5173',
         methods: ['GET', 'POST', 'PUT', 'DELETE'],
         credentials: true,
       },
-      pingTimeout: 60000, // Increase timeout for stability
+      pingTimeout: 60000,
       pingInterval: 25000,
     });
 
@@ -73,7 +70,7 @@ const startServer = async () => {
     setupSocket(io);
 
     // Middleware
-    app.use(express.json({ limit: '10mb' })); // Limit payload size
+    app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true }));
     app.use(cors({
       origin: process.env.CLIENT_URL || 'http://localhost:5173',
@@ -84,12 +81,12 @@ const startServer = async () => {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", "'unsafe-inline'"], // Adjust based on needs
+          scriptSrc: ["'self'", "'unsafe-inline'"],
         },
       },
     }));
     app.use(morgan('dev', {
-      stream: { write: (message) => logger.info(message.trim()) }, // Pipe Morgan to Winston
+      stream: { write: (message) => logger.info(message.trim()) },
     }));
 
     // Health check endpoint
@@ -101,11 +98,11 @@ const startServer = async () => {
       });
     });
 
-    // API Routes
-    app.use('/api/auth', authRoutes);
-    app.use('/api/chefs', chefRoutes);
-    app.use('/api/leagues', leagueRoutes);
-    app.use('/api/challenges', challengeRoutes);
+    // API Routes (update controllers to use Firestore)
+    app.use('/api/auth', (await import('./routes/authRoutes.js')).default);
+    app.use('/api/chefs', (await import('./routes/chefRoutes.js')).default);
+    app.use('/api/leagues', (await import('./routes/leagueRoutes.js')).default);
+    app.use('/api/challenges', (await import('./routes/challengeRoutes.js')).default);
 
     // Welcome route
     app.get('/', (req, res) => {
@@ -113,7 +110,11 @@ const startServer = async () => {
     });
 
     // Error handling middleware
-    app.use(notFound);
+    app.use((req, res, next) => {
+      const error = new Error(`Not Found - ${req.originalUrl}`);
+      res.status(404);
+      next(error);
+    });
     app.use((err, req, res, next) => {
       logger.error(`Server Error: ${err.message}`, { stack: err.stack });
       const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
@@ -123,7 +124,7 @@ const startServer = async () => {
       });
     });
 
-    // Dynamically find an available port if needed
+    // Dynamic port finding
     const basePort = parseInt(process.env.PORT, 10) || 5000;
     portfinder.basePort = basePort;
     const port = await portfinder.getPortPromise();
@@ -133,7 +134,7 @@ const startServer = async () => {
       logger.info(`Server running on port ${port} in ${process.env.NODE_ENV || 'development'} mode`);
     });
 
-    // Handle server errors (e.g., EADDRINUSE)
+    // Handle server errors
     server.on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
         logger.error(`Port ${port} is in use, attempting to find another...`);
@@ -148,18 +149,16 @@ const startServer = async () => {
       }
     });
 
-    // Graceful shutdown on signals
+    // Graceful shutdown
     ['SIGINT', 'SIGTERM'].forEach((signal) => {
       process.on(signal, () => gracefulShutdown(server, signal));
     });
 
-    // Handle unhandled promise rejections
     process.on('unhandledRejection', (reason, promise) => {
       logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
       gracefulShutdown(server, 'unhandledRejection');
     });
 
-    // Handle uncaught exceptions
     process.on('uncaughtException', (err) => {
       logger.error('Uncaught Exception:', err);
       gracefulShutdown(server, 'uncaughtException');
