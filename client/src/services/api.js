@@ -1,12 +1,21 @@
 import axios from 'axios';
+import axiosRetry from 'axios-retry';
 
 // Create an axios instance with default config
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api', // Updated fallback
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, // Added for request timeout
+  timeout: 10000,
+  withCredentials: true, // Optional, for cookies/credentials
+});
+
+// Add retry logic for network errors
+axiosRetry(api, {
+  retries: 3,
+  retryDelay: (retryCount) => retryCount * 1000,
+  retryCondition: (error) => axiosRetry.isNetworkOrIdempotentRequestError(error),
 });
 
 // Request interceptor for adding auth token
@@ -37,15 +46,13 @@ api.interceptors.response.use(
 
     const originalRequest = error.config;
 
-    // Handle 401 Unauthorized - redirect to login
     if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true; // Prevent infinite loop
+      originalRequest._retry = true;
       localStorage.removeItem('token');
       window.location.href = '/login';
-      return Promise.reject(error); // Ensure error is still rejected after redirect
+      return Promise.reject(error);
     }
 
-    // Log additional details for 500 errors
     if (error.response?.status === 500) {
       console.error('Server Error Details:', error.response.data);
     }

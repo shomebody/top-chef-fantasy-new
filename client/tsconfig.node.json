@@ -4,7 +4,9 @@
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2020",           // Added for consistency
+    "types": ["node", "vite/client"] // Added for explicitness
   },
-  "include": ["vite.config.js"]
+  "include": ["client/vite.config.js"]
 }

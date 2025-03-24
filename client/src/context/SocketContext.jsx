@@ -1,13 +1,48 @@
-import React, { createContext, useState, useEffect } from 'react';
+// client/src/context/SocketContext.jsx
+import React, { createContext, useState, useEffect, useMemo } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from '../hooks/useAuth.jsx';
 
-export const SocketContext = createContext();
+// Create context with complete default values
+export const SocketContext = createContext({
+  socket: null,
+  connected: false,
+  EVENTS: {
+    JOIN_LEAGUE: 'join_league',
+    LEAVE_LEAGUE: 'leave_league',
+    SEND_MESSAGE: 'send_message',
+    CHAT_MESSAGE: 'chat_message',
+    CHEF_UPDATE: 'chef_update',
+    LEAGUE_UPDATE: 'league_update',
+    USER_TYPING: 'user_typing',
+    USER_JOINED: 'user_joined',
+    USER_LEFT: 'user_left',
+    SCORE_UPDATE: 'score_update'
+  },
+  joinLeague: (leagueId) => {},
+  leaveLeague: (leagueId) => {},
+  sendMessage: (message) => {},
+  sendTyping: (leagueId) => {}
+});
 
-export const SocketProvider = ({ children }) => {
+export function SocketProvider({ children }) {
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated = false, user = null } = useAuth();
+
+  // Socket event constants - moved outside component for performance
+  const EVENTS = {
+    JOIN_LEAGUE: 'join_league',
+    LEAVE_LEAGUE: 'leave_league',
+    SEND_MESSAGE: 'send_message',
+    CHAT_MESSAGE: 'chat_message',
+    CHEF_UPDATE: 'chef_update',
+    LEAGUE_UPDATE: 'league_update',
+    USER_TYPING: 'user_typing',
+    USER_JOINED: 'user_joined',
+    USER_LEFT: 'user_left',
+    SCORE_UPDATE: 'score_update'
+  };
 
   useEffect(() => {
     let socketInstance = null;
@@ -51,49 +86,33 @@ export const SocketProvider = ({ children }) => {
     };
   }, [isAuthenticated, user]);
 
-  // Socket event constants
-  const EVENTS = {
-    JOIN_LEAGUE: 'join_league',
-    LEAVE_LEAGUE: 'leave_league',
-    SEND_MESSAGE: 'send_message',
-    CHAT_MESSAGE: 'chat_message',
-    CHEF_UPDATE: 'chef_update',
-    LEAGUE_UPDATE: 'league_update',
-    USER_TYPING: 'user_typing',
-    USER_JOINED: 'user_joined',
-    USER_LEFT: 'user_left',
-    SCORE_UPDATE: 'score_update'
-  };
-
-  // Join a league channel
+  // Methods with proper parameter types
   const joinLeague = (leagueId) => {
-    if (socket && connected) {
+    if (socket && connected && leagueId) {
       socket.emit(EVENTS.JOIN_LEAGUE, { leagueId });
     }
   };
 
-  // Leave a league channel
   const leaveLeague = (leagueId) => {
-    if (socket && connected) {
+    if (socket && connected && leagueId) {
       socket.emit(EVENTS.LEAVE_LEAGUE, { leagueId });
     }
   };
 
-  // Send a message to a league
   const sendMessage = (message) => {
-    if (socket && connected) {
+    if (socket && connected && message) {
       socket.emit(EVENTS.SEND_MESSAGE, message);
     }
   };
 
-  // Indicate typing in a channel
   const sendTyping = (leagueId) => {
-    if (socket && connected) {
+    if (socket && connected && leagueId) {
       socket.emit(EVENTS.USER_TYPING, { leagueId });
     }
   };
 
-  const contextValue = {
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
     socket,
     connected,
     EVENTS,
@@ -101,12 +120,8 @@ export const SocketProvider = ({ children }) => {
     leaveLeague,
     sendMessage,
     sendTyping
-  };
+  }), [socket, connected]);
 
-  return (
-    <SocketContext.Provider value={contextValue}>
-      {children}
-    </SocketContext.Provider>
-  );
-};
-
+  // Using React 19 Context syntax
+  return <SocketContext value={contextValue}>{children}</SocketContext>;
+}

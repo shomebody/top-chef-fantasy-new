@@ -3,7 +3,21 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import { useSocket } from '../hooks/useSocket.jsx';
 import api from '../services/api.js';
 
-export const LeagueContext = createContext();
+export const LeagueContext = createContext({
+  leagues: [],
+  currentLeague: null,
+  chefs: [],
+  leaderboard: [],
+  challenges: [],
+  loading: true,
+  error: null,
+  fetchUserLeagues: () => {},
+  fetchLeagueDetails: () => {},
+  createLeague: () => {},
+  joinLeagueWithCode: () => {},
+  switchLeague: (value) => {},
+  updateLeague: () => {},
+});
 
 export const LeagueProvider = ({ children }) => {
   const [leagues, setLeagues] = useState([]);
@@ -15,7 +29,7 @@ export const LeagueProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   const { user = null, isAuthenticated = false } = useAuth();
-  const { socket = null, connected = false, EVENTS = {}, joinLeague = () => {} } = useSocket();
+  const { socket = null, connected = false, EVENTS = { LEAGUE_UPDATE: 'league_update', SCORE_UPDATE: 'score_update' }, joinLeague = () => {} } = useSocket();
 
   // Load user's leagues
   useEffect(() => {

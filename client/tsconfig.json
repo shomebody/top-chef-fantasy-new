@@ -13,14 +13,15 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "strict": false, // Relaxed from true
-    "noUnusedLocals": false, // Relaxed
-    "noUnusedParameters": false, // Relaxed
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "typeRoots": ["./node_modules/@types", "./src/types"] // Added
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]
