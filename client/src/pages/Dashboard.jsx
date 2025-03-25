@@ -3,6 +3,7 @@ import { useLeague } from '../hooks/useLeague.jsx';
 import Card from '../components/ui/Card.jsx';
 import Button from '../components/ui/Button.jsx';
 import { Link } from 'react-router-dom';
+import FirebaseTest from '../components/FirebaseTest.jsx';
 
 const Dashboard = () => {
   const { currentLeague, leaderboard, loading, error, fetchLeagueDetails } = useLeague();
@@ -36,6 +37,11 @@ const Dashboard = () => {
             <Button variant="primary">Browse Leagues</Button>
           </Link>
         </div>
+        
+        {/* Firebase Connection Test */}
+        <div className="mt-8 w-full max-w-md">
+          <FirebaseTest />
+        </div>
       </div>
     );
   }
@@ -48,6 +54,11 @@ const Dashboard = () => {
           <Button variant="outline" size="sm">League Details</Button>
         </Link>
       </div>
+      
+      {/* Firebase Connection Test */}
+      <Card title="Firebase Connection">
+        <FirebaseTest />
+      </Card>
       
       {/* League Overview */}
       <Card title={currentLeague?.name} subtitle="Season">

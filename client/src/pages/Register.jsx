@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
-import { authService } from '../services/authService'; // Add this import
+import { authService } from '../services/authService';
 import Card from '../components/ui/Card.jsx';
 import Input from '../components/ui/Input.jsx';
 import Button from '../components/ui/Button.jsx';
@@ -18,32 +18,38 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
+    console.log('Form Submitted:', { name, email, password });
     
-    // Form validation
     if (!name || !email || !password || !confirmPassword) {
       setFormError('Please fill in all fields');
+      console.log('Validation failed: Missing fields');
       return;
     }
     
     if (password !== confirmPassword) {
       setFormError('Passwords do not match');
+      console.log('Validation failed: Passwords mismatch');
       return;
     }
     
     if (password.length < 6) {
       setFormError('Password must be at least 6 characters');
+      console.log('Validation failed: Password too short');
       return;
     }
     
     try {
-      const userProfile = await authService.register({ name, email, password }); // Use authService directly
+      console.log('Starting registration...');
+      const userProfile = await authService.register({ name, email, password });
       console.log('Registered User:', userProfile);
-      const tokenResult = await authService.getToken(); // Get the token
+      const tokenResult = await authService.getToken();
       console.log('Firebase ID Token:', tokenResult);
-      await register({ name, email, password }); // Keep this for useAuth state
+      console.log('Calling useAuth register...');
+      await register({ name, email, password });
+      console.log('Registration complete');
     } catch (err) {
       console.error('Registration error:', err.message);
-      setFormError(err.message); // Show the error in the UI
+      setFormError(err.message);
     }
   };
   
@@ -70,7 +76,6 @@ const Register = () => {
           onChange={(e) => setName(e.target.value)}
           required
         />
-        
         <Input
           label="Email Address"
           type="email"
@@ -80,7 +85,6 @@ const Register = () => {
           onChange={(e) => setEmail(e.target.value)}
           required
         />
-        
         <Input
           label="Password"
           type="password"
@@ -91,7 +95,6 @@ const Register = () => {
           helper="Password must be at least 6 characters"
           required
         />
-        
         <Input
           label="Confirm Password"
           type="password"
@@ -101,7 +104,6 @@ const Register = () => {
           onChange={(e) => setConfirmPassword(e.target.value)}
           required
         />
-        
         <div className="mb-6">
           <div className="flex items-center">
             <input
@@ -122,7 +124,6 @@ const Register = () => {
             </label>
           </div>
         </div>
-        
         <Button
           type="submit"
           variant="primary"

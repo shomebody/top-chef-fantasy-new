@@ -1,7 +1,8 @@
 import React, { createContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import AuthService from '../services/authService';
 
 export const AuthContext = createContext({
   user: null,
@@ -22,45 +23,46 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    let isMounted = true;
-    
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.group('AUTH STATE CHANGE');
+      setLoading(true);
       
-      if (firebaseUser && isMounted) {
+      if (firebaseUser) {
         try {
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           
-          if (userDoc.exists() && isMounted) {
+          if (userDoc.exists()) {
             setUser({
               _id: firebaseUser.uid,
-              ...userDoc.data()
+              ...userDoc.data(),
+              emailVerified: firebaseUser.emailVerified
+            });
+            setIsAuthenticated(true);
+          } else {
+            // User exists in Firebase Auth but not in Firestore
+            console.warn('User document not found in Firestore');
+            setUser({
+              _id: firebaseUser.uid,
+              name: firebaseUser.displayName || '',
+              email: firebaseUser.email || '',
+              emailVerified: firebaseUser.emailVerified
             });
             setIsAuthenticated(true);
           }
         } catch (error) {
           console.error('Error fetching user profile:', error);
-          if (isMounted) {
-            setError('Failed to load user profile');
-          }
+          setError('Failed to load user profile');
+          setIsAuthenticated(false);
+          setUser(null);
         }
-      } else if (isMounted) {
+      } else {
         setUser(null);
         setIsAuthenticated(false);
       }
       
-      if (isMounted) {
-        setLoading(false);
-      }
-      
-      console.log('Auth state updated:', !!firebaseUser);
-      console.groupEnd();
+      setLoading(false);
     });
     
-    return () => {
-      isMounted = false;
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, []);
 
   const login = useCallback(async (email, password) => {
@@ -68,28 +70,11 @@ export function AuthProvider({ children }) {
       setLoading(true);
       setError(null);
       
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
-      
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const user = {
-          _id: userCredential.user.uid,
-          name: userData.name,
-          email: userData.email,
-          isAdmin: userData.isAdmin || false
-        };
-        
-        setUser(user);
-        setIsAuthenticated(true);
-        
-        return user;
-      } else {
-        throw new Error('User profile not found');
-      }
+      const user = await AuthService.login(email, password);
+      return user;
     } catch (error) {
       console.error('Login error:', error);
-      setError(error.message || 'Login failed');
+      setError(mapAuthErrorToMessage(error));
       throw error;
     } finally {
       setLoading(false);
@@ -98,12 +83,10 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     try {
-      await signOut(auth);
-      setUser(null);
-      setIsAuthenticated(false);
+      await AuthService.logout();
     } catch (error) {
       console.error('Logout error:', error);
-      setError(error.message || 'Logout failed');
+      setError(mapAuthErrorToMessage(error));
     }
   }, []);
 
@@ -112,87 +95,65 @@ export function AuthProvider({ children }) {
       setLoading(true);
       setError(null);
       
-      const userCredential = await createUserWithEmailAndPassword(
-        auth, 
-        userData.email, 
-        userData.password
-      );
-      
-      await updateProfile(userCredential.user, {
-        displayName: userData.name
-      });
-      
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
-        name: userData.name,
-        email: userData.email,
-        avatar: '',
-        isAdmin: false,
-        leagues: [],
-        createdAt: new Date().toISOString()
-      });
-      
-      const newUser = {
-        _id: userCredential.user.uid,
-        name: userData.name,
-        email: userData.email,
-        isAdmin: false
-      };
-      
-      setUser(newUser);
-      setIsAuthenticated(true);
-      
-      return newUser;
+      const user = await AuthService.register(userData);
+      return user;
     } catch (error) {
       console.error('Registration error:', error);
-      setError(error.message || 'Registration failed');
+      setError(mapAuthErrorToMessage(error));
       throw error;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const updateUserProfile = useCallback(async (userData) => {
+  const updateProfile = useCallback(async (userData) => {
     try {
       setLoading(true);
       setError(null);
       
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('No user logged in');
-      
-      const userRef = doc(db, 'users', currentUser.uid);
-      
-      const updateData = {};
-      if (userData.name) updateData.name = userData.name;
-      if (userData.email) updateData.email = userData.email;
-      if (userData.avatar) updateData.avatar = userData.avatar;
-      
-      if (Object.keys(updateData).length > 0) {
-        await updateDoc(userRef, updateData);
-        
-        if (userData.name) {
-          await updateProfile(currentUser, {
-            displayName: userData.name
-          });
-        }
-      }
+      const updatedUser = await AuthService.updateProfile(userData);
       
       setUser(prev => ({
         ...prev,
-        ...updateData
+        ...updatedUser
       }));
       
-      return {
-        _id: currentUser.uid,
-        ...updateData
-      };
+      return updatedUser;
     } catch (error) {
       console.error('Update profile error:', error);
-      setError(error.message || 'Profile update failed');
+      setError(mapAuthErrorToMessage(error));
       throw error;
     } finally {
       setLoading(false);
     }
   }, []);
+
+  // Map Firebase auth errors to user-friendly messages
+  const mapAuthErrorToMessage = (error) => {
+    const errorCode = error.code;
+    switch (errorCode) {
+      case 'auth/invalid-email':
+        return 'Invalid email address format';
+      case 'auth/user-disabled':
+        return 'This account has been disabled';
+      case 'auth/user-not-found':
+        return 'No account found with this email';
+      case 'auth/wrong-password':
+        return 'Incorrect password';
+      case 'auth/email-already-in-use':
+        return 'Email already in use';
+      case 'auth/weak-password':
+        return 'Password is too weak';
+      case 'auth/operation-not-allowed':
+        return 'Operation not allowed';
+      case 'auth/account-exists-with-different-credential':
+        return 'An account already exists with the same email address but different sign-in credentials';
+      case 'auth/popup-closed-by-user':
+        return 'Sign-in popup was closed before completing the sign-in';
+      default:
+        return error.message || 'Authentication failed';
+    }
+  };
 
   const value = useMemo(() => ({
     user,
@@ -202,9 +163,9 @@ export function AuthProvider({ children }) {
     login,
     logout,
     register,
-    updateProfile: updateUserProfile,
-    setError: (message) => setError(message)
-  }), [user, isAuthenticated, loading, error, login, logout, register, updateUserProfile]);
+    updateProfile,
+    setError
+  }), [user, isAuthenticated, loading, error, login, logout, register, updateProfile]);
 
   return (
     <AuthContext.Provider value={value}>
