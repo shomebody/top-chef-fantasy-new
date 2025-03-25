@@ -1,5 +1,5 @@
 // server/src/index.js
-import admin, { db, auth } from './config/firebase.js'; // Fixed import
+import admin, { db, auth } from './config/firebase.js';
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -10,6 +10,13 @@ import morgan from 'morgan';
 import portfinder from 'portfinder';
 import { createLogger, format, transports } from 'winston';
 import setupSocket from './socket/index.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Define __dirname for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables
 dotenv.config();
@@ -97,7 +104,7 @@ const startServer = async () => {
       }
     });
 
-    // API Routes (pass db and auth if needed)
+    // API Routes
     app.use('/api/auth', (await import('./routes/authRoutes.js')).default);
     app.use('/api/chefs', (await import('./routes/chefRoutes.js')).default);
     app.use('/api/leagues', (await import('./routes/leagueRoutes.js')).default);
@@ -124,7 +131,7 @@ const startServer = async () => {
       });
     });
 
-    // Dynamic port finding
+    // Dynamic port finding and saving to file
     const basePort = parseInt(process.env.PORT, 10) || 5000;
     portfinder.basePort = basePort;
     const port = await portfinder.getPortPromise();
@@ -132,6 +139,24 @@ const startServer = async () => {
     // Start the server
     server.listen(port, () => {
       logger.info(`Server running on port ${port} in ${process.env.NODE_ENV || 'development'} mode`);
+      // Write port to client/backend-port.json
+      const portFilePath = path.resolve(__dirname, '../../client/backend-port.json');
+      logger.info(`Target port file path: ${portFilePath}`);
+      try {
+        // Delete existing file to ensure a fresh write (optional, comment out if not needed)
+        if (fs.existsSync(portFilePath)) {
+          fs.unlinkSync(portFilePath);
+          logger.info(`Deleted existing ${portFilePath}`);
+        }
+        // Write the new port
+        fs.writeFileSync(portFilePath, JSON.stringify({ port }), 'utf8');
+        logger.info(`Port ${port} saved to ${portFilePath}`);
+        // Verify it wrote correctly
+        const writtenContent = fs.readFileSync(portFilePath, 'utf8');
+        logger.info(`Verified port file content: ${writtenContent}`);
+      } catch (writeError) {
+        logger.error(`Failed to write port file: ${writeError.message}`, { stack: writeError.stack });
+      }
     });
 
     // Handle server errors
@@ -141,6 +166,24 @@ const startServer = async () => {
         portfinder.getPortPromise().then((newPort) => {
           server.listen(newPort, () => {
             logger.info(`Server switched to port ${newPort}`);
+            // Update port file
+            const portFilePath = path.resolve(__dirname, '../../client/backend-port.json');
+            logger.info(`Target port file path: ${portFilePath}`);
+            try {
+              // Delete existing file to ensure a fresh write (optional)
+              if (fs.existsSync(portFilePath)) {
+                fs.unlinkSync(portFilePath);
+                logger.info(`Deleted existing ${portFilePath}`);
+              }
+              // Write the new port
+              fs.writeFileSync(portFilePath, JSON.stringify({ port: newPort }), 'utf8');
+              logger.info(`Port ${newPort} saved to ${portFilePath}`);
+              // Verify it wrote correctly
+              const writtenContent = fs.readFileSync(portFilePath, 'utf8');
+              logger.info(`Verified port file content: ${writtenContent}`);
+            } catch (writeError) {
+              logger.error(`Failed to write port file: ${writeError.message}`, { stack: writeError.stack });
+            }
           });
         });
       } else {
