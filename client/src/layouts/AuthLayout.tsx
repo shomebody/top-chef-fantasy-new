@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import { useTheme } from '../hooks/useTheme.jsx';
+import { useTheme } from '../hooks/useTheme.js';
 import Logo from '../components/ui/Logo.jsx';
 import ThemeToggle from '../components/ui/ThemeToggle.jsx';
 

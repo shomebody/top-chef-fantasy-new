@@ -1,6 +1,6 @@
 // client/src/hooks/useChef.jsx
 import { useContext } from 'react';
-import { ChefContext } from '../context/ChefContext.jsx';
+import { ChefContext } from '../context/ChefContext.js';
 
 export const useChef = () => {
   const context = useContext(ChefContext);

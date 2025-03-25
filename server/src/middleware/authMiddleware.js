@@ -1,3 +1,5 @@
+// server/src/middleware/authMiddleware.js
+import admin from 'firebase-admin';
 import { auth } from '../config/firebase.js';
 import asyncHandler from '../utils/asyncHandler.js';
 
@@ -5,14 +7,15 @@ import asyncHandler from '../utils/asyncHandler.js';
 export const protect = asyncHandler(async (req, res, next) => {
   let token;
   
-  // Check if token exists in headers
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
       // Get token from header
       token = req.headers.authorization.split(' ')[1];
+      console.log('Token received:', token.substring(0, 20) + '...');
       
       // Verify token with Firebase Admin
       const decodedToken = await auth.verifyIdToken(token);
+      console.log('Token verified for user:', decodedToken.uid);
       
       // Add user info to request
       req.user = {
@@ -26,7 +29,8 @@ export const protect = asyncHandler(async (req, res, next) => {
       res.status(401);
       throw new Error('Not authorized, token failed');
     }
-  } else if (!token) {
+  } else {
+    console.log('No token found in request headers');
     res.status(401);
     throw new Error('Not authorized, no token');
   }
@@ -35,11 +39,11 @@ export const protect = asyncHandler(async (req, res, next) => {
 // Admin middleware
 export const admin = asyncHandler(async (req, res, next) => {
   try {
+    const { db } = await import('../config/firebase.js');
     // Get user from Firestore
-    const userDoc = await auth.getUser(req.user._id);
-    const userData = (await db.collection('users').doc(req.user._id).get()).data();
+    const userDoc = await db.collection('users').doc(req.user._id).get();
     
-    if (userData && userData.isAdmin) {
+    if (userDoc.exists && userDoc.data()?.isAdmin) {
       next();
     } else {
       res.status(403);

@@ -4,8 +4,8 @@ import Sidebar from '../components/navigation/Sidebar.jsx';
 import Header from '../components/navigation/Header.jsx';
 import ChatPanel from '../components/chat/ChatPanel.jsx';
 import MobileNav from '../components/navigation/MobileNav.jsx';
-import { useAuth } from '../hooks/useAuth.jsx';
-import { useTheme } from '../hooks/useTheme.jsx';
+import { useAuth } from '../hooks/useAuth.js';
+import { useTheme } from '../hooks/useTheme.js';
 
 const MainLayout = () => {
   const { user } = useAuth();

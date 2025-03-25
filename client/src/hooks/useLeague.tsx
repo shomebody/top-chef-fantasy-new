@@ -1,5 +1,6 @@
+// client/src/hooks/useLeague.tsx
 import { useContext } from 'react';
-import { LeagueContext } from '../context/LeagueContext.jsx';
+import { LeagueContext } from '../context/LeagueContext';
 
 export const useLeague = () => {
   const context = useContext(LeagueContext);
@@ -10,4 +11,3 @@ export const useLeague = () => {
   
   return context;
 };
-

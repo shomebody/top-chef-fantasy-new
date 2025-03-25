@@ -1,6 +1,6 @@
 // client/src/hooks/useUserProfile.jsx
 import { useContext } from 'react';
-import { UserContext } from '../context/UserContext.jsx';
+import { UserContext } from '../context/UserContext.js';
 
 export const useUserProfile = () => {
   const context = useContext(UserContext);

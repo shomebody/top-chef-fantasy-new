@@ -1,13 +1,48 @@
+// client/src/hooks/useChat.tsx
 import { useState, useEffect, useCallback } from 'react';
-import { useSocket } from './useSocket.jsx';
-import { useAuth } from './useAuth.jsx';
-import api from '../services/api.js';
+import { useSocket } from './useSocket';
+import { useAuth } from './useAuth';
+import api from '../services/api';
 
-export const useChat = (leagueId) => {
-  const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [typingUsers, setTypingUsers] = useState([]);
+// Define TypeScript interfaces
+interface ChatMessage {
+  _id: string;
+  content: string;
+  type: 'text' | 'system' | 'image';
+  sender?: {
+    _id: string;
+    name: string;
+  };
+  createdAt: string;
+  userId?: string;
+  leagueId?: string;
+}
+
+interface TypingUser {
+  userId: string;
+  username: string;
+}
+
+interface UserEvent {
+  userId: string;
+  username: string;
+}
+
+interface UseChatReturn {
+  messages: ChatMessage[];
+  loading: boolean;
+  error: string | null;
+  typingUsers: TypingUser[];
+  sendMessage: (content: string, type?: string) => Promise<void>;
+  sendTypingIndicator: () => void;
+  refreshMessages: () => Promise<void>;
+}
+
+export const useChat = (leagueId?: string): UseChatReturn => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
 
   const { socket, connected, EVENTS, joinLeague, leaveLeague, sendMessage: socketSendMessage, sendTyping } = useSocket();
   const { user } = useAuth();
@@ -22,20 +57,21 @@ export const useChat = (leagueId) => {
       setError(null);
     } catch (err) {
       console.error('Error fetching messages:', err);
-      setError(err.response?.data?.message || 'Failed to load chat history');
+      setError(err instanceof Error ? err.message : 
+        (err as any)?.response?.data?.message || 'Failed to load chat history');
     } finally {
       setLoading(false);
     }
   }, [leagueId]);
 
   // Handle new message from socket
-  const handleNewMessage = useCallback((message) => {
+  const handleNewMessage = useCallback((message: ChatMessage) => {
     setMessages((prev) => [...prev, message]);
     setTypingUsers((prev) => prev.filter((u) => u.userId !== message.userId));
   }, []);
 
   // Handle user typing notification
-  const handleUserTyping = useCallback(({ userId, username }) => {
+  const handleUserTyping = useCallback(({ userId, username }: UserEvent) => {
     if (userId === user?._id) return;
 
     setTypingUsers((prev) => {
@@ -51,8 +87,9 @@ export const useChat = (leagueId) => {
   }, [user]);
 
   // Handle user joined notification
-  const handleUserJoined = useCallback(({ userId, username }) => {
-    const systemMessage = {
+  // @ts-ignore
+  const handleUserJoined = useCallback(({ userId, username }: UserEvent) => {
+    const systemMessage: ChatMessage = {
       _id: Date.now().toString(),
       content: `${username} joined the chat`,
       type: 'system',
@@ -62,8 +99,8 @@ export const useChat = (leagueId) => {
   }, []);
 
   // Handle user left notification
-  const handleUserLeft = useCallback(({ userId, username }) => {
-    const systemMessage = {
+  const handleUserLeft = useCallback(({ userId, username }: UserEvent) => {
+    const systemMessage: ChatMessage = {
       _id: Date.now().toString(),
       content: `${username} left the chat`,
       type: 'system',
@@ -86,7 +123,7 @@ export const useChat = (leagueId) => {
       socket.on(EVENTS.USER_TYPING, handleUserTyping);
       socket.on(EVENTS.USER_JOINED, handleUserJoined);
       socket.on(EVENTS.USER_LEFT, handleUserLeft);
-      socket.on('error', (err) => setError(`Socket error: ${err.message}`));
+      socket.on('error', (err: Error) => setError(`Socket error: ${err.message}`));
 
       return () => {
         leaveLeague(leagueId);
@@ -97,18 +134,21 @@ export const useChat = (leagueId) => {
         socket.off('error');
       };
     }
-  }, [socket, connected, leagueId, fetchMessages, handleNewMessage, handleUserTyping, handleUserJoined, handleUserLeft]);
+    
+    return undefined;
+  }, [socket, connected, leagueId, fetchMessages, handleNewMessage, handleUserTyping, handleUserJoined, handleUserLeft, EVENTS, joinLeague, leaveLeague]);
 
   // Send a new message
   const sendMessage = useCallback(
-    async (content, type = 'text') => {
+    async (content: string, type: string = 'text') => {
       if (!content || !leagueId || !user) return;
 
-      const message = {
+      const message: ChatMessage = {
+        _id: Date.now().toString(), // Add a temporary client-side ID
         leagueId,
         content,
-        type,
-        sender: { _id: user._id, name: user.name },
+        type: type as 'text' | 'system' | 'image',
+        sender: { _id: user._id, name: user.name || 'Unknown' },
         createdAt: new Date().toISOString(),
       };
 
@@ -139,3 +179,5 @@ export const useChat = (leagueId) => {
     refreshMessages: fetchMessages,
   };
 };
+
+export default useChat;
