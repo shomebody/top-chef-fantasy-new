@@ -1,50 +1,68 @@
-import React, { createContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+// client/src/context/AuthContext.tsx
+import { createContext, useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import AuthService from '../services/authService';
 
-export const AuthContext = createContext({
+interface AuthContextType {
+  user: {
+    _id: string;
+    name: string;
+    email: string;
+    emailVerified: boolean;
+    isAdmin?: boolean;
+  } | null;
+  isAuthenticated: boolean;
+  loading: boolean;
+  error: string | null;
+  login: (email: string, password: string) => Promise<any>;
+  logout: () => Promise<void>;
+  register: (userData: { email: string; password: string; name: string }) => Promise<any>;
+  updateProfile: (userData: { name?: string; avatar?: string }) => Promise<any>;
+  setError: (error: string | null) => void;
+}
+
+export const AuthContext = createContext<AuthContextType>({
   user: null,
   isAuthenticated: false,
   loading: true,
   error: null,
   login: async () => null,
-  logout: () => {},
+  logout: async () => {},
   register: async () => null,
   updateProfile: async () => null,
-  setError: () => {}
+  setError: () => {},
 });
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<AuthContextType['user']>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: User | null) => {
       setLoading(true);
-      
+
       if (firebaseUser) {
         try {
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          
+
           if (userDoc.exists()) {
             setUser({
               _id: firebaseUser.uid,
               ...userDoc.data(),
-              emailVerified: firebaseUser.emailVerified
-            });
+              emailVerified: firebaseUser.emailVerified,
+            } as AuthContextType['user']);
             setIsAuthenticated(true);
           } else {
-            // User exists in Firebase Auth but not in Firestore
             console.warn('User document not found in Firestore');
             setUser({
               _id: firebaseUser.uid,
               name: firebaseUser.displayName || '',
               email: firebaseUser.email || '',
-              emailVerified: firebaseUser.emailVerified
+              emailVerified: firebaseUser.emailVerified,
             });
             setIsAuthenticated(true);
           }
@@ -58,21 +76,21 @@ export function AuthProvider({ children }) {
         setUser(null);
         setIsAuthenticated(false);
       }
-      
+
       setLoading(false);
     });
-    
+
     return () => unsubscribe();
   }, []);
 
-  const login = useCallback(async (email, password) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const user = await AuthService.login(email, password);
       return user;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Login error:', error);
       setError(mapAuthErrorToMessage(error));
       throw error;
@@ -84,20 +102,20 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     try {
       await AuthService.logout();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Logout error:', error);
       setError(mapAuthErrorToMessage(error));
     }
   }, []);
 
-  const register = useCallback(async (userData) => {
+  const register = useCallback(async (userData: { email: string; password: string; name: string }) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const user = await AuthService.register(userData);
       return user;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Registration error:', error);
       setError(mapAuthErrorToMessage(error));
       throw error;
@@ -106,20 +124,20 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const updateProfile = useCallback(async (userData) => {
+  const updateProfile = useCallback(async (userData: { name?: string; avatar?: string }) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const updatedUser = await AuthService.updateProfile(userData);
-      
-      setUser(prev => ({
-        ...prev,
-        ...updatedUser
+
+      setUser((prev) => ({
+        ...prev!,
+        ...updatedUser,
       }));
-      
+
       return updatedUser;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Update profile error:', error);
       setError(mapAuthErrorToMessage(error));
       throw error;
@@ -128,9 +146,8 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // Map Firebase auth errors to user-friendly messages
-  const mapAuthErrorToMessage = (error) => {
-    const errorCode = error.code;
+  const mapAuthErrorToMessage = (error: unknown): string => {
+    const errorCode = (error as any).code;
     switch (errorCode) {
       case 'auth/invalid-email':
         return 'Invalid email address format';
@@ -151,25 +168,24 @@ export function AuthProvider({ children }) {
       case 'auth/popup-closed-by-user':
         return 'Sign-in popup was closed before completing the sign-in';
       default:
-        return error.message || 'Authentication failed';
+        return (error as any).message || 'Authentication failed';
     }
   };
 
-  const value = useMemo(() => ({
-    user,
-    isAuthenticated,
-    loading,
-    error,
-    login,
-    logout,
-    register,
-    updateProfile,
-    setError
-  }), [user, isAuthenticated, loading, error, login, logout, register, updateProfile]);
-
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({
+      user,
+      isAuthenticated,
+      loading,
+      error,
+      login,
+      logout,
+      register,
+      updateProfile,
+      setError,
+    }),
+    [user, isAuthenticated, loading, error, login, logout, register, updateProfile]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

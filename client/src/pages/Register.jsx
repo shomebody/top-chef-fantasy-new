@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+// client/src/pages/Register.jsx
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth.jsx';
-import { authService } from '../services/authService';
-import Card from '../components/ui/Card.jsx';
-import Input from '../components/ui/Input.jsx';
-import Button from '../components/ui/Button.jsx';
+import { useAuth } from '../hooks/useAuth';
+import { authService } from '../services/authService'; // Fixed to use named export
+import Card from '../components/ui/Card';
+import Input from '../components/ui/Input';
+import Button from '../components/ui/Button';
 
 const Register = () => {
   const [name, setName] = useState('');
@@ -49,7 +50,7 @@ const Register = () => {
       console.log('Registration complete');
     } catch (err) {
       console.error('Registration error:', err.message);
-      setFormError(err.message);
+      setFormError(err.message || 'Failed to register');
     }
   };
   

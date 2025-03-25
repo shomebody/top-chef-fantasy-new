@@ -1,9 +1,9 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useLeague } from '../hooks/useLeague.jsx';
 import Card from '../components/ui/Card.jsx';
 import Button from '../components/ui/Button.jsx';
 import { Link } from 'react-router-dom';
-import FirebaseTest from '../components/FirebaseTest.jsx';
+
 
 const Dashboard = () => {
   const { currentLeague, leaderboard, loading, error, fetchLeagueDetails } = useLeague();
