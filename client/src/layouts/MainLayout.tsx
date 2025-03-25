@@ -1,15 +1,12 @@
+// src/layouts/MainLayout.tsx
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import Sidebar from '../components/navigation/Sidebar.jsx';
-import Header from '../components/navigation/Header.jsx';
-import ChatPanel from '../components/chat/ChatPanel.jsx';
-import MobileNav from '../components/navigation/MobileNav.jsx';
-import { useAuth } from '../hooks/useAuth.js';
-import { useTheme } from '../hooks/useTheme.js';
+import Sidebar from '../components/navigation/Sidebar';
+import Header from '../components/navigation/Header';
+import ChatPanel from '../components/chat/ChatPanel';
+import MobileNav from '../components/navigation/MobileNav';
 
-const MainLayout = () => {
-  const { user } = useAuth();
-  const { theme } = useTheme();
+const MainLayout: React.FC = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -26,7 +23,6 @@ const MainLayout = () => {
       {/* Sidebar - desktop */}
       <div className="bg-white dark:bg-gray-800 border-r border-gray-200">
         <Sidebar 
-          user={user} 
           collapsed={isSidebarCollapsed} 
           onToggle={toggleSidebar} 
         />
@@ -59,4 +55,3 @@ const MainLayout = () => {
 };
 
 export default MainLayout;
-
