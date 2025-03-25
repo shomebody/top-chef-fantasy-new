@@ -1,5 +1,6 @@
 // client/src/App.jsx
 import React, { useState, useEffect } from 'react';
+import { testFirebase } from './testFirebase'; // Already imported
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth.jsx';
 import { useTheme } from './hooks/useTheme.jsx';
@@ -55,6 +56,9 @@ const App = () => {
       console.log('Token length:', token.length);
       console.log('Token preview:', token.substring(0, 10) + '...');
     }
+    
+    testFirebase(); // Added here to test Firebase initialization
+    
     console.groupEnd();
 
     return () => {

@@ -42,3 +42,4 @@ lerna-debug.log*
 firebase-service-account.json
 *-service-account.json
 service-account*.json
+firebaseConfig.ts
