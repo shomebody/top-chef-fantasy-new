@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
+import { authService } from '../services/authService'; // Add this import
 import Card from '../components/ui/Card.jsx';
 import Input from '../components/ui/Input.jsx';
 import Button from '../components/ui/Button.jsx';
@@ -35,9 +36,14 @@ const Register = () => {
     }
     
     try {
-      await register({ name, email, password });
+      const userProfile = await authService.register({ name, email, password }); // Use authService directly
+      console.log('Registered User:', userProfile);
+      const tokenResult = await authService.getToken(); // Get the token
+      console.log('Firebase ID Token:', tokenResult);
+      await register({ name, email, password }); // Keep this for useAuth state
     } catch (err) {
-      console.error('Registration error:', err);
+      console.error('Registration error:', err.message);
+      setFormError(err.message); // Show the error in the UI
     }
   };
   
@@ -140,4 +146,3 @@ const Register = () => {
 };
 
 export default Register;
-
