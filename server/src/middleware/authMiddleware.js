@@ -1,6 +1,5 @@
 // server/src/middleware/authMiddleware.js
-import admin from 'firebase-admin';
-import { auth } from '../config/firebase.js';
+import { auth, db } from '../config/firebase.js';
 import asyncHandler from '../utils/asyncHandler.js';
 
 // Protect routes - verify Firebase token
@@ -39,7 +38,6 @@ export const protect = asyncHandler(async (req, res, next) => {
 // Admin middleware
 export const admin = asyncHandler(async (req, res, next) => {
   try {
-    const { db } = await import('../config/firebase.js');
     // Get user from Firestore
     const userDoc = await db.collection('users').doc(req.user._id).get();
     
