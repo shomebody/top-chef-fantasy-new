@@ -1,29 +1,75 @@
 // client/src/context/AuthContext.tsx
-import { createContext, useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
-import { onAuthStateChanged, type User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
-import AuthService from '../services/authService';
+import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { 
+  User as FirebaseUser,
+ createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  sendEmailVerification,
+  updateProfile as firebaseUpdateProfile,
+  onAuthStateChanged,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
+  applyActionCode,
 
-interface AuthContextType {
-  user: {
-    _id: string;
-    name: string;
-    email: string;
-    emailVerified: boolean;
-    isAdmin?: boolean;
-  } | null;
+} from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '../config/firebase';
+
+/**
+ * User profile interface extending Firebase User data with app-specific fields
+ */
+export interface UserProfile {
+  _id: string;
+  name: string;
+  email: string;
+  isAdmin: boolean;
+  emailVerified: boolean;
+  avatar?: string;
+}
+
+/**
+ * Data required for user registration
+ */
+export interface RegisterData {
+  name: string;
+  email: string;
+  password: string;
+}
+
+/**
+ * Data for updating user profile
+ */
+export interface UpdateProfileData {
+  name?: string;
+  email?: string;
+  password?: string;
+  currentPassword?: string;
+  avatar?: string;
+}
+
+/**
+ * Authentication context interface defining all auth-related functionality
+ */
+export interface AuthContextProps {
+  user: UserProfile | null;
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<any>;
+  login: (email: string, password: string) => Promise<UserProfile | null>;
   logout: () => Promise<void>;
-  register: (userData: { email: string; password: string; name: string }) => Promise<any>;
-  updateProfile: (userData: { name?: string; avatar?: string }) => Promise<any>;
+  register: (userData: RegisterData) => Promise<UserProfile | null>;
+  updateProfile: (userData: UpdateProfileData) => Promise<UserProfile | null>;
+  resetPassword: (email: string) => Promise<boolean>;
+  sendVerificationEmail: () => Promise<boolean>;
+  verifyEmail: (actionCode: string) => Promise<boolean>;
   setError: (error: string | null) => void;
 }
 
-export const AuthContext = createContext<AuthContextType>({
+// Create context with default values
+export const AuthContext = createContext<AuthContextProps>({
   user: null,
   isAuthenticated: false,
   loading: true,
@@ -32,160 +78,343 @@ export const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
   register: async () => null,
   updateProfile: async () => null,
-  setError: () => {},
+  resetPassword: async () => false,
+  sendVerificationEmail: async () => false,
+  verifyEmail: async () => false,
+  setError: () => {}
 });
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthContextType['user']>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
+/**
+ * Maps Firebase auth errors to user-friendly messages
+ */
+const mapFirebaseError = (error: any): string => {
+  const errorCode = error.code || '';
+  const errorMessage = error.message || 'An unknown error occurred';
+  
+  // Common Firebase error codes
+  switch (errorCode) {
+    case 'auth/invalid-email':
+      return 'Invalid email address format';
+    case 'auth/user-disabled':
+      return 'This account has been disabled';
+    case 'auth/user-not-found':
+      return 'No account found with this email';
+    case 'auth/wrong-password':
+      return 'Incorrect password';
+    case 'auth/email-already-in-use':
+      return 'Email already in use';
+    case 'auth/weak-password':
+      return 'Password is too weak';
+    case 'auth/operation-not-allowed':
+      return 'Operation not allowed';
+    case 'auth/requires-recent-login':
+      return 'Please log in again before retrying this request';
+    case 'auth/too-many-requests':
+      return 'Too many unsuccessful login attempts. Please try again later';
+    case 'auth/network-request-failed':
+      return 'Network error. Please check your connection';
+    default:
+      return errorMessage;
+  }
+};
+
+/**
+ * Converts Firebase user data to UserProfile format
+ */
+const formatUserProfile = async (firebaseUser: FirebaseUser): Promise<UserProfile> => {
+  // Get additional user data from Firestore
+  let userData: any = {};
+  try {
+    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+    if (userDoc.exists()) {
+      userData = userDoc.data();
+    }
+  } catch (error) {
+    console.error('Error fetching user data:', error);
+  }
+  
+  return {
+    _id: firebaseUser.uid,
+    name: userData.name || firebaseUser.displayName || '',
+    email: userData.email || firebaseUser.email || '',
+    isAdmin: userData.isAdmin || false,
+    emailVerified: firebaseUser.emailVerified,
+    avatar: userData.avatar || firebaseUser.photoURL || ''
+  };
+};
+
+export function AuthProvider({ children }: { children: React.ReactNode }): React.ReactNode {  const [user, setUser] = useState<UserProfile | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Listen for Firebase auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: User | null) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setLoading(true);
-
-      if (firebaseUser) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-
-          if (userDoc.exists()) {
-            setUser({
-              _id: firebaseUser.uid,
-              ...userDoc.data(),
-              emailVerified: firebaseUser.emailVerified,
-            } as AuthContextType['user']);
-            setIsAuthenticated(true);
-          } else {
-            console.warn('User document not found in Firestore');
-            setUser({
-              _id: firebaseUser.uid,
-              name: firebaseUser.displayName || '',
-              email: firebaseUser.email || '',
-              emailVerified: firebaseUser.emailVerified,
-            });
-            setIsAuthenticated(true);
-          }
-        } catch (error) {
-          console.error('Error fetching user profile:', error);
-          setError('Failed to load user profile');
-          setIsAuthenticated(false);
+      
+      try {
+        if (firebaseUser) {
+          const userProfile = await formatUserProfile(firebaseUser);
+          setUser(userProfile);
+          setIsAuthenticated(true);
+        } else {
           setUser(null);
+          setIsAuthenticated(false);
         }
-      } else {
-        setUser(null);
-        setIsAuthenticated(false);
+      } catch (err) {
+        console.error('Auth state change error:', err);
+        setError(mapFirebaseError(err));
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     });
-
+    
+    // Cleanup function
     return () => unsubscribe();
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
+  /**
+   * Log in user with email and password
+   */
+  const login = useCallback(async (email: string, password: string): Promise<UserProfile | null> => {
     try {
       setLoading(true);
       setError(null);
-
-      const user = await AuthService.login(email, password);
-      return user;
-    } catch (error: unknown) {
-      console.error('Login error:', error);
-      setError(mapAuthErrorToMessage(error));
-      throw error;
+      
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userProfile = await formatUserProfile(userCredential.user);
+      
+      return userProfile;
+    } catch (err) {
+      console.error('Login error:', err);
+      setError(mapFirebaseError(err));
+      return null;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const logout = useCallback(async () => {
-    try {
-      await AuthService.logout();
-    } catch (error: unknown) {
-      console.error('Logout error:', error);
-      setError(mapAuthErrorToMessage(error));
-    }
-  }, []);
-
-  const register = useCallback(async (userData: { email: string; password: string; name: string }) => {
+  /**
+   * Register new user with email and password
+   */
+  const register = useCallback(async (userData: RegisterData): Promise<UserProfile | null> => {
     try {
       setLoading(true);
       setError(null);
-
-      const user = await AuthService.register(userData);
-      return user;
-    } catch (error: unknown) {
-      console.error('Registration error:', error);
-      setError(mapAuthErrorToMessage(error));
-      throw error;
+      
+      // Create user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(
+        auth, 
+        userData.email, 
+        userData.password
+      );
+      
+      // Update display name
+      await firebaseUpdateProfile(userCredential.user, {
+        displayName: userData.name
+      });
+      
+      // Optional: Send email verification
+      await sendEmailVerification(userCredential.user);
+      
+      // Store additional user data in Firestore
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        name: userData.name,
+        email: userData.email,
+        isAdmin: false,
+        leagues: [],
+        createdAt: serverTimestamp()
+      });
+      
+      const userProfile = await formatUserProfile(userCredential.user);
+      return userProfile;
+    } catch (err) {
+      console.error('Registration error:', err);
+      setError(mapFirebaseError(err));
+      return null;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const updateProfile = useCallback(async (userData: { name?: string; avatar?: string }) => {
+  /**
+   * Log out current user
+   */
+  const logout = useCallback(async (): Promise<void> => {
+    try {
+      setLoading(true);
+      await signOut(auth);
+    } catch (err) {
+      console.error('Logout error:', err);
+      setError(mapFirebaseError(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * Update user profile information
+   */
+  const updateProfile = useCallback(async (userData: UpdateProfileData): Promise<UserProfile | null> => {
     try {
       setLoading(true);
       setError(null);
-
-      const updatedUser = await AuthService.updateProfile(userData);
-
-      setUser((prev) => ({
-        ...prev!,
-        ...updatedUser,
-      }));
-
+      
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('No user logged in');
+      }
+      
+      // If updating password, need to reauthenticate first
+      if (userData.password && userData.currentPassword) {
+        const credential = EmailAuthProvider.credential(
+          currentUser.email || '',
+          userData.currentPassword
+        );
+        
+        await reauthenticateWithCredential(currentUser, credential);
+        await updatePassword(currentUser, userData.password);
+      }
+      
+      const updates: Record<string, any> = {};
+      
+      // Update name in Firebase Auth and Firestore
+      if (userData.name) {
+        await firebaseUpdateProfile(currentUser, {
+          displayName: userData.name
+        });
+        updates.name = userData.name;
+      }
+      
+      // Update avatar if provided
+      if (userData.avatar) {
+        await firebaseUpdateProfile(currentUser, {
+          photoURL: userData.avatar
+        });
+        updates.avatar = userData.avatar;
+      }
+      
+      // Update Firestore document if changes
+      if (Object.keys(updates).length > 0) {
+        await updateDoc(doc(db, 'users', currentUser.uid), updates);
+      }
+      
+      // Return updated user profile
+      const updatedUser = await formatUserProfile(currentUser);
+      setUser(updatedUser);
+      
       return updatedUser;
-    } catch (error: unknown) {
-      console.error('Update profile error:', error);
-      setError(mapAuthErrorToMessage(error));
-      throw error;
+    } catch (err) {
+      console.error('Update profile error:', err);
+      setError(mapFirebaseError(err));
+      return null;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const mapAuthErrorToMessage = (error: unknown): string => {
-    const errorCode = (error as any).code;
-    switch (errorCode) {
-      case 'auth/invalid-email':
-        return 'Invalid email address format';
-      case 'auth/user-disabled':
-        return 'This account has been disabled';
-      case 'auth/user-not-found':
-        return 'No account found with this email';
-      case 'auth/wrong-password':
-        return 'Incorrect password';
-      case 'auth/email-already-in-use':
-        return 'Email already in use';
-      case 'auth/weak-password':
-        return 'Password is too weak';
-      case 'auth/operation-not-allowed':
-        return 'Operation not allowed';
-      case 'auth/account-exists-with-different-credential':
-        return 'An account already exists with the same email address but different sign-in credentials';
-      case 'auth/popup-closed-by-user':
-        return 'Sign-in popup was closed before completing the sign-in';
-      default:
-        return (error as any).message || 'Authentication failed';
+  /**
+   * Send password reset email to specified address
+   */
+  const resetPassword = useCallback(async (email: string): Promise<boolean> => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      await sendPasswordResetEmail(auth, email);
+      return true;
+    } catch (err) {
+      console.error('Reset password error:', err);
+      setError(mapFirebaseError(err));
+      return false;
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
-  const value = useMemo(
-    () => ({
-      user,
-      isAuthenticated,
-      loading,
-      error,
-      login,
-      logout,
-      register,
-      updateProfile,
-      setError,
-    }),
-    [user, isAuthenticated, loading, error, login, logout, register, updateProfile]
+  /**
+   * Send email verification to current user
+   */
+  const sendVerificationEmail = useCallback(async (): Promise<boolean> => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('No user logged in');
+      }
+      
+      await sendEmailVerification(currentUser);
+      return true;
+    } catch (err) {
+      console.error('Send verification email error:', err);
+      setError(mapFirebaseError(err));
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * Verify email with action code
+   */
+  const verifyEmail = useCallback(async (actionCode: string): Promise<boolean> => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Apply the email verification code
+      await applyActionCode(auth, actionCode);
+      
+      // If user is logged in, refresh the user
+      if (auth.currentUser) {
+        const userProfile = await formatUserProfile(auth.currentUser);
+        setUser(userProfile);
+      }
+      
+      return true;
+    } catch (err) {
+      console.error('Verify email error:', err);
+      setError(mapFirebaseError(err));
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    user,
+    isAuthenticated,
+    loading,
+    error,
+    login,
+    logout,
+    register,
+    updateProfile,
+    resetPassword,
+    sendVerificationEmail,
+    verifyEmail,
+    setError
+  }), [
+    user, 
+    isAuthenticated, 
+    loading, 
+    error, 
+    login, 
+    logout, 
+    register, 
+    updateProfile, 
+    resetPassword, 
+    sendVerificationEmail, 
+    verifyEmail
+  ]);
+
+  return (
+    <AuthContext.Provider value={contextValue}>
+      {children}
+    </AuthContext.Provider>
   );
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { useAuth } from '../hooks/useAuth.jsx';
-import { useSocket } from '../hooks/useSocket.jsx';
+import { useAuth } from '../hooks/useAuth';
+import { useSocket } from '../hooks/useSocket';
 import api from '../services/api.js';
 
 // Create context with default values

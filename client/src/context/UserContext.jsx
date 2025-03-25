@@ -3,7 +3,7 @@ import React, { createContext, useState, useEffect, useCallback, useMemo } from 
 import { doc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
-import { useAuth } from '../hooks/useAuth.jsx';
+import { useAuth } from '../hooks/useAuth';
 
 export const UserContext = createContext({
   userProfile: null,

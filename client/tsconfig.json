@@ -8,11 +8,17 @@
     "allowJs": false,
     "checkJs": false,
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "allowImportingTsExtensions": false,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "types": ["react", "react-dom",],
     "noEmit": true,
     "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "sourceMap": true,
+    "inlineSources": true,
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -23,6 +29,6 @@
     },
     "typeRoots": ["./node_modules/@types", "./src/types"]
   },
-  "include": ["src", "src/**/*.d.ts"],
+  "include": ["src", "src/**/*.d.ts", "*.ts", "*.tsx"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

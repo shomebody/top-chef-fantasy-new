@@ -1,7 +1,7 @@
 // client/src/context/SocketContext.jsx
 import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
-import useAuth from '../hooks/useAuth.tsx';
+import {useAuth} from '../hooks/useAuth';
 
 // Socket event constants
 export const EVENTS = {
