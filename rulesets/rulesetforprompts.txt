@@ -1,10 +1,33 @@
-Authentication System Conflict: You have both JWT auth (server) and Firebase auth (client) implementations
-*completed/React 19 Context API Syntax: Your context providers use outdated syntax
-Database Inconsistency: MongoDB models in server but Firebase Firestore references in client
-Dependencies Compatibility: Several packages may need updates for React 19
-Socket.io Connection: Possible disconnection between client and server implementations
 
-"Review my existing Firebase implementation files first, then only suggest missing components needed to complete the transition. Don't repeat steps I've already completed."
+i would like to initiate a new session with you.  summarize and prepare new session for a prompt to correctly handle all rules set forth in this session except using ts files.  make it the best prompt you possibly can for finishing this website. adjust existing prompt and rules to suit your preference. 
+I'm developing the Top Chef Fantasy app using Firebase for both authentication and database. So far, I've migrated server components (auth middleware, league controller, server initialization, challenge controller, message functionality) and client components (chef management, user profile management) to Firebase/Firestore.
+
+The next phase is enhancing the authentication system. I already have an authService.js implementing core Firebase auth, but it needs password reset and email verification capabilities.
+
+Please always:
+1. Review the entire codebase and check dependencies for compatibility
+2. Adhere strictly to the ruleset guidelines including comprehensive feature audits
+3. Provide complete file replacements, never partial changes
+4. Follow established Firebase patterns with API fallbacks
+5. Ensure React 19 compatibility (useContext hooks, component state, cleanup)
+6. Include git commit messages for each updated file
+Request precise error context: Include exact error message, line number, and relevant component chain
+Specify React 19 compatibility: Explicitly mention that solutions must use React 19 features
+Request error handling: Ask for full error handling with proper logging
+Require event cleanup: Specifically ask for proper event listeners cleanup
+Demand dependency array completeness: All hooks should have optimal dependency arrays
+Enforce useCallback/useMemo: Request memoization for all functions/computed values
+Request reduced dependencies: Solutions should minimize external dependencies
+Force JSDoc compliance: Request proper parameter typing and return values
+Demand code format: Request code that follows specific formatting rules
+Require test considerations: Ask how the solution would be tested
+
+
+Focus on one functionality area at a time. After authentication, we'll tackle league management, challenge integration, and roster functionality.
+
+The goal is a fully functional Firebase-based application with proper error handling, comprehensive features, and fallback mechanisms.
+
+Review my existing Firebase implementation files first, then only suggest missing components needed to complete the transition. Don't repeat steps I've already completed.
 
 
 React 19 Features:
