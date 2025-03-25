@@ -1,5 +1,5 @@
 // server/src/index.js
-import admin, { db, auth } from './config/firebase.js';
+import firebaseAdmin, { db, auth } from './config/firebase.js';
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -67,7 +67,7 @@ const startServer = async () => {
     });
 
     // Setup Socket.IO with Firebase
-    setupSocket(io, db, auth);
+    setupSocket(io);
 
     // Middleware
     app.use(express.json({ limit: '10mb' }));
@@ -92,7 +92,9 @@ const startServer = async () => {
     // Health check endpoint with Firebase status
     app.get('/health', async (req, res) => {
       try {
-        await db.collection('health').doc('status').set({ lastChecked: admin.firestore.FieldValue.serverTimestamp() });
+        await db.collection('health').doc('status').set({ 
+          lastChecked: firebaseAdmin.firestore.FieldValue.serverTimestamp() 
+        });
         res.status(200).json({
           status: 'healthy',
           uptime: process.uptime(),
@@ -105,11 +107,18 @@ const startServer = async () => {
     });
 
     // API Routes
-    app.use('/api/auth', (await import('./routes/authRoutes.js')).default);
-    app.use('/api/chefs', (await import('./routes/chefRoutes.js')).default);
-    app.use('/api/leagues', (await import('./routes/leagueRoutes.js')).default);
-    app.use('/api/challenges', (await import('./routes/challengeRoutes.js')).default);
-    app.use('/api/messages', (await import('./routes/messageRoutes.js')).default);
+    const routeNames = [
+      'authRoutes',
+      'chefRoutes', 
+      'leagueRoutes', 
+      'challengeRoutes', 
+      'messageRoutes'
+    ];
+
+    for (const routeName of routeNames) {
+      const route = await import(`./routes/${routeName}.js`);
+      app.use(`/api/${routeName.replace('Routes', '')}`, route.default);
+    }
 
     // Welcome route
     app.get('/', (req, res) => {
@@ -131,7 +140,7 @@ const startServer = async () => {
       });
     });
 
-    // Dynamic port finding and saving to file
+    // Dynamic port finding
     const basePort = parseInt(process.env.PORT, 10) || 5000;
     portfinder.basePort = basePort;
     const port = await portfinder.getPortPromise();
@@ -139,56 +148,14 @@ const startServer = async () => {
     // Start the server
     server.listen(port, () => {
       logger.info(`Server running on port ${port} in ${process.env.NODE_ENV || 'development'} mode`);
+      
       // Write port to client/backend-port.json
       const portFilePath = path.resolve(__dirname, '../../client/backend-port.json');
-      logger.info(`Target port file path: ${portFilePath}`);
       try {
-        // Delete existing file to ensure a fresh write (optional, comment out if not needed)
-        if (fs.existsSync(portFilePath)) {
-          fs.unlinkSync(portFilePath);
-          logger.info(`Deleted existing ${portFilePath}`);
-        }
-        // Write the new port
         fs.writeFileSync(portFilePath, JSON.stringify({ port }), 'utf8');
         logger.info(`Port ${port} saved to ${portFilePath}`);
-        // Verify it wrote correctly
-        const writtenContent = fs.readFileSync(portFilePath, 'utf8');
-        logger.info(`Verified port file content: ${writtenContent}`);
       } catch (writeError) {
         logger.error(`Failed to write port file: ${writeError.message}`, { stack: writeError.stack });
-      }
-    });
-
-    // Handle server errors
-    server.on('error', (err) => {
-      if (err.code === 'EADDRINUSE') {
-        logger.error(`Port ${port} is in use, attempting to find another...`);
-        portfinder.getPortPromise().then((newPort) => {
-          server.listen(newPort, () => {
-            logger.info(`Server switched to port ${newPort}`);
-            // Update port file
-            const portFilePath = path.resolve(__dirname, '../../client/backend-port.json');
-            logger.info(`Target port file path: ${portFilePath}`);
-            try {
-              // Delete existing file to ensure a fresh write (optional)
-              if (fs.existsSync(portFilePath)) {
-                fs.unlinkSync(portFilePath);
-                logger.info(`Deleted existing ${portFilePath}`);
-              }
-              // Write the new port
-              fs.writeFileSync(portFilePath, JSON.stringify({ port: newPort }), 'utf8');
-              logger.info(`Port ${newPort} saved to ${portFilePath}`);
-              // Verify it wrote correctly
-              const writtenContent = fs.readFileSync(portFilePath, 'utf8');
-              logger.info(`Verified port file content: ${writtenContent}`);
-            } catch (writeError) {
-              logger.error(`Failed to write port file: ${writeError.message}`, { stack: writeError.stack });
-            }
-          });
-        });
-      } else {
-        logger.error('Server error:', err);
-        throw err;
       }
     });
 

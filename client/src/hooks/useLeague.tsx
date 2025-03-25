@@ -1,8 +1,7 @@
-// client/src/hooks/useLeague.tsx
 import { useContext } from 'react';
-import { LeagueContext } from '../context/LeagueContext';
+import { LeagueContext, UseLeagueReturn } from '../context/LeagueContext';
 
-export const useLeague = () => {
+export const useLeague = (): UseLeagueReturn => {
   const context = useContext(LeagueContext);
   
   if (!context) {
