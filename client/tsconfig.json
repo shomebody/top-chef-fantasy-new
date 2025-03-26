@@ -4,22 +4,22 @@
     "useDefineForClassFields": true,
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "module": "ESNext",
-    "skipLibCheck": true,
+    "skipLibCheck": true, // Good for speeding up builds, keep it
     "allowJs": false,
     "checkJs": false,
-    "moduleResolution": "bundler",
+    "moduleResolution": "bundler", // Perfect for Vite
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "allowImportingTsExtensions": false,
+    "allowImportingTsExtensions": false, // Enforces .ts/.tsx, good for consistency
     "resolveJsonModule": true,
-    "isolatedModules": true,
-    "types": ["react", "react-dom", "node"],
-    "noEmit": true,
+    "isolatedModules": true, // Required for Vite’s fast HMR
+    "types": ["react", "react-dom", "node"], // Add "vite/client" for Vite types
+    "noEmit": true, // Vite handles emitting
     "jsx": "react-jsx",
     "jsxImportSource": "react",
     "sourceMap": true,
     "inlineSources": true,
-    "strict": true,
+    "strict": true, // Keep this on for safety; toggle off only temporarily
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
@@ -29,6 +29,6 @@
     },
     "typeRoots": ["./node_modules/@types", "./src/types"]
   },
-  "include": ["src", "src/**/*.d.ts", "*.ts", "*.tsx"],
+  "include": ["src", "src/**/*.d.ts", "*.ts", "*.tsx", "addTestLeague.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

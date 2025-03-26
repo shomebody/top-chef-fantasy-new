@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint ./src --ext js,jsx,ts,tsx --report-unused-disable-directives --max-warnings 0",
     "predev": "node -e \"require('child_process').exec('kill-port 5173 5174', (err) => { if (err) console.log('Ports already free or error:', err); })\""
   },
   "dependencies": {
@@ -16,6 +16,7 @@
     "axios-retry": "^4.5.0",
     "chart.js": "4.4.4",
     "date-fns": "4.1.0",
+    "dotenv": "^16.4.7",
     "firebase": "^11.5.0",
     "react": "19.0.0",
     "react-chartjs-2": "^5.2.0",
