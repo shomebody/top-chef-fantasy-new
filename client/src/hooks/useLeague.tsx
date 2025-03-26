@@ -1,5 +1,6 @@
 import { useContext } from 'react';
-import { LeagueContext, UseLeagueReturn } from '../context/LeagueContext';
+import { LeagueContext } from '../context/LeagueContext';
+import type { UseLeagueReturn } from '../hooks/useLeague.d';
 
 export const useLeague = (): UseLeagueReturn => {
   const context = useContext(LeagueContext);
@@ -10,3 +11,5 @@ export const useLeague = (): UseLeagueReturn => {
   
   return context;
 };
+
+export type { UseLeagueReturn };

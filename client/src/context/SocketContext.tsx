@@ -1,7 +1,8 @@
-// client/src/context/SocketContext.jsx
-import { createContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
-import { io, Socket } from 'socket.io-client';
-import {useAuth} from '../hooks/useAuth';
+// client/src/context/SocketContext.tsx
+import { createContext, useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { io, type Socket } from 'socket.io-client';
+import { useAuth } from '../hooks/useAuth';
+import { getAuth } from 'firebase/auth';
 
 // Socket event constants
 export const EVENTS = {
@@ -44,47 +45,73 @@ interface SocketProviderProps {
   children: ReactNode;
 }
 
-export const SocketProvider = ({ children }: SocketProviderProps) => {
+export function SocketProvider({ children }: SocketProviderProps) {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const { user } = useAuth();
+  const auth = getAuth();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!user?._id) {
+      console.log('No authenticated user, not connecting to socket');
+      return;
+    }
 
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
-    const newSocket = io(socketUrl, {
-      auth: { token },
-      reconnection: true,
-      reconnectionAttempts: 5,
-    });
+    const connectSocket = async () => {
+      try {
+        // Get Firebase token instead of localStorage
+        const firebaseToken = await auth.currentUser?.getIdToken(true);
+        
+        if (!firebaseToken) {
+          console.log('No Firebase token available');
+          return;
+        }
+        
+        console.log('Connecting to socket with Firebase token');
+        const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+        const newSocket = io(socketUrl, {
+          auth: { token: firebaseToken },
+          reconnection: true,
+          reconnectionAttempts: 5,
+        });
 
-    newSocket.on('connect', () => {
-      setConnected(true);
-    });
+        newSocket.on('connect', () => {
+          console.log('Socket connected');
+          setConnected(true);
+        });
 
-    newSocket.on('disconnect', () => {
-      setConnected(false);
-    });
+        newSocket.on('disconnect', () => {
+          console.log('Socket disconnected');
+          setConnected(false);
+        });
 
-    newSocket.on('connect_error', (error) => {
-      console.error('Socket connection failed:', error);
-      setConnected(false);
-    });
+        newSocket.on('connect_error', (error) => {
+          console.error('Socket connection failed:', error);
+          setConnected(false);
+        });
 
-    setSocket(newSocket);
+        setSocket(newSocket);
+      } catch (err) {
+        console.error('Error getting Firebase token:', err);
+      }
+    };
+
+    connectSocket();
 
     return () => {
-      newSocket.disconnect();
-      setSocket(null);
-      setConnected(false);
+      if (socket) {
+        console.log('Disconnecting socket');
+        socket.disconnect();
+        setSocket(null);
+        setConnected(false);
+      }
     };
-  }, [user?._id]); // Triggers on login/logout when user._id changes
+  }, [user?._id, auth.currentUser]);
 
   const joinLeague = useCallback(
     (leagueId: string) => {
       if (socket && connected) {
+        console.log(`Joining league socket: ${leagueId}`);
         socket.emit(EVENTS.JOIN_LEAGUE, { leagueId });
       }
     },
@@ -94,6 +121,7 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
   const leaveLeague = useCallback(
     (leagueId: string) => {
       if (socket && connected) {
+        console.log(`Leaving league socket: ${leagueId}`);
         socket.emit(EVENTS.LEAVE_LEAGUE, { leagueId });
       }
     },
@@ -103,6 +131,7 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
   const sendMessage = useCallback(
     (message: any) => {
       if (socket && connected) {
+        console.log('Sending message via socket');
         socket.emit(EVENTS.SEND_MESSAGE, message);
       }
     },
@@ -132,4 +161,4 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
   );
 
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
-};
+}

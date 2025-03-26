@@ -1,4 +1,3 @@
-import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { useTheme } from '../hooks/useTheme.js';
 import Logo from '../components/ui/Logo.jsx';

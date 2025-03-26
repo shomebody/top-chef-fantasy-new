@@ -26,6 +26,7 @@ interface TypingUser {
 interface UserEvent {
   userId: string;
   username: string;
+  timestamp?: Date;
 }
 
 interface UseChatReturn {
@@ -38,7 +39,7 @@ interface UseChatReturn {
   refreshMessages: () => Promise<void>;
 }
 
-export const useChat = (leagueId?: string): UseChatReturn => {
+export function useChat(leagueId?: string): UseChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,11 +51,14 @@ export const useChat = (leagueId?: string): UseChatReturn => {
   // Fetch chat history when leagueId changes
   const fetchMessages = useCallback(async () => {
     if (!leagueId) return;
+    
     try {
+      console.log(`Fetching messages for league: ${leagueId}`);
       setLoading(true);
       const response = await api.get(`/messages/${leagueId}`);
       setMessages(response.data.reverse()); // Newest messages at the bottom
       setError(null);
+      console.log(`Loaded ${response.data.length} messages`);
     } catch (err) {
       console.error('Error fetching messages:', err);
       setError(err instanceof Error ? err.message : 
@@ -66,6 +70,7 @@ export const useChat = (leagueId?: string): UseChatReturn => {
 
   // Handle new message from socket
   const handleNewMessage = useCallback((message: ChatMessage) => {
+    console.log('Received new message via socket');
     setMessages((prev) => [...prev, message]);
     setTypingUsers((prev) => prev.filter((u) => u.userId !== message.userId));
   }, []);
@@ -74,6 +79,7 @@ export const useChat = (leagueId?: string): UseChatReturn => {
   const handleUserTyping = useCallback(({ userId, username }: UserEvent) => {
     if (userId === user?._id) return;
 
+    console.log(`User typing: ${username}`);
     setTypingUsers((prev) => {
       if (!prev.some((u) => u.userId === userId)) {
         const newTypingUsers = [...prev, { userId, username }];
@@ -84,11 +90,11 @@ export const useChat = (leagueId?: string): UseChatReturn => {
       }
       return prev;
     });
-  }, [user]);
+  }, [user?._id]);
 
   // Handle user joined notification
-  // @ts-ignore
   const handleUserJoined = useCallback(({ userId, username }: UserEvent) => {
+    console.log(`User joined: ${username}`);
     const systemMessage: ChatMessage = {
       _id: Date.now().toString(),
       content: `${username} joined the chat`,
@@ -100,6 +106,7 @@ export const useChat = (leagueId?: string): UseChatReturn => {
 
   // Handle user left notification
   const handleUserLeft = useCallback(({ userId, username }: UserEvent) => {
+    console.log(`User left: ${username}`);
     const systemMessage: ChatMessage = {
       _id: Date.now().toString(),
       content: `${username} left the chat`,
@@ -117,6 +124,7 @@ export const useChat = (leagueId?: string): UseChatReturn => {
     fetchMessages();
 
     if (socket && connected) {
+      console.log(`Setting up chat socket for league: ${leagueId}`);
       joinLeague(leagueId);
 
       socket.on(EVENTS.CHAT_MESSAGE, handleNewMessage);
@@ -126,6 +134,7 @@ export const useChat = (leagueId?: string): UseChatReturn => {
       socket.on('error', (err: Error) => setError(`Socket error: ${err.message}`));
 
       return () => {
+        console.log(`Cleaning up chat socket for league: ${leagueId}`);
         leaveLeague(leagueId);
         socket.off(EVENTS.CHAT_MESSAGE, handleNewMessage);
         socket.off(EVENTS.USER_TYPING, handleUserTyping);
@@ -136,13 +145,26 @@ export const useChat = (leagueId?: string): UseChatReturn => {
     }
     
     return undefined;
-  }, [socket, connected, leagueId, fetchMessages, handleNewMessage, handleUserTyping, handleUserJoined, handleUserLeft, EVENTS, joinLeague, leaveLeague]);
+  }, [
+    socket, 
+    connected, 
+    leagueId, 
+    fetchMessages, 
+    handleNewMessage, 
+    handleUserTyping, 
+    handleUserJoined, 
+    handleUserLeft, 
+    EVENTS, 
+    joinLeague, 
+    leaveLeague
+  ]);
 
   // Send a new message
   const sendMessage = useCallback(
     async (content: string, type: string = 'text') => {
       if (!content || !leagueId || !user) return;
 
+      console.log(`Sending message in league: ${leagueId}`);
       const message: ChatMessage = {
         _id: Date.now().toString(), // Add a temporary client-side ID
         leagueId,
@@ -178,6 +200,6 @@ export const useChat = (leagueId?: string): UseChatReturn => {
     sendTypingIndicator,
     refreshMessages: fetchMessages,
   };
-};
+}
 
 export default useChat;

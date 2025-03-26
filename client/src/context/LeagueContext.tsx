@@ -1,5 +1,5 @@
 // client/src/context/LeagueContext.tsx
-import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { createContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { 
   collection, 
   doc, 
@@ -14,13 +14,14 @@ import {
   arrayUnion, 
   serverTimestamp, 
   Timestamp, 
-  DocumentData 
+  type DocumentData,
+  type QueryDocumentSnapshot
 } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { db } from '../config/firebase';
 import api from '../services/api';
 
-// Define TypeScript interfaces for our data structures
+// Define TypeScript interfaces
 export interface ChefData {
   _id: string;
   name: string;
@@ -116,7 +117,7 @@ export interface Challenge {
   status: 'upcoming' | 'completed';
 }
 
-interface LeagueContextType {
+export interface UseLeagueReturn {
   leagues: League[];
   currentLeague: League | null;
   chefs: ChefData[];
@@ -135,7 +136,7 @@ interface LeagueContextType {
 }
 
 // Create context with default values
-export const LeagueContext = createContext<LeagueContextType>({
+export const LeagueContext = createContext<UseLeagueReturn>({
   leagues: [],
   currentLeague: null,
   chefs: [],
@@ -145,15 +146,39 @@ export const LeagueContext = createContext<LeagueContextType>({
   error: null,
   fetchUserLeagues: async () => {},
   fetchLeagueDetails: async () => {},
-  createLeague: async () => ({ _id: '', name: '', creator: '', season: 0, maxMembers: 0, maxRosterSize: 0, status: 'draft', inviteCode: '', scoringSettings: { quickfireWin: 0, challengeWin: 0, topThree: 0, bottomThree: 0, elimination: 0, finalWinner: 0 }, currentWeek: 0, members: [] }),
-  joinLeagueWithCode: async () => ({ _id: '', name: '', creator: '', season: 0, maxMembers: 0, maxRosterSize: 0, status: 'draft', inviteCode: '', scoringSettings: { quickfireWin: 0, challengeWin: 0, topThree: 0, bottomThree: 0, elimination: 0, finalWinner: 0 }, currentWeek: 0, members: [] }),
+  createLeague: async () => ({ 
+    _id: '', name: '', creator: '', season: 0, maxMembers: 0, maxRosterSize: 0,
+    status: 'draft', inviteCode: '', scoringSettings: { 
+      quickfireWin: 0, challengeWin: 0, topThree: 0, bottomThree: 0, elimination: 0, finalWinner: 0 
+    }, currentWeek: 0, members: [] 
+  }),
+  joinLeagueWithCode: async () => ({ 
+    _id: '', name: '', creator: '', season: 0, maxMembers: 0, maxRosterSize: 0,
+    status: 'draft', inviteCode: '', scoringSettings: { 
+      quickfireWin: 0, challengeWin: 0, topThree: 0, bottomThree: 0, elimination: 0, finalWinner: 0 
+    }, currentWeek: 0, members: [] 
+  }),
   switchLeague: () => {},
-  updateLeague: async () => ({ _id: '', name: '', creator: '', season: 0, maxMembers: 0, maxRosterSize: 0, status: 'draft', inviteCode: '', scoringSettings: { quickfireWin: 0, challengeWin: 0, topThree: 0, bottomThree: 0, elimination: 0, finalWinner: 0 }, currentWeek: 0, members: [] }),
-  draftChef: async () => ({ _id: '', name: '', creator: '', season: 0, maxMembers: 0, maxRosterSize: 0, status: 'draft', inviteCode: '', scoringSettings: { quickfireWin: 0, challengeWin: 0, topThree: 0, bottomThree: 0, elimination: 0, finalWinner: 0 }, currentWeek: 0, members: [] }),
+  updateLeague: async () => ({ 
+    _id: '', name: '', creator: '', season: 0, maxMembers: 0, maxRosterSize: 0,
+    status: 'draft', inviteCode: '', scoringSettings: { 
+      quickfireWin: 0, challengeWin: 0, topThree: 0, bottomThree: 0, elimination: 0, finalWinner: 0 
+    }, currentWeek: 0, members: [] 
+  }),
+  draftChef: async () => ({ 
+    _id: '', name: '', creator: '', season: 0, maxMembers: 0, maxRosterSize: 0,
+    status: 'draft', inviteCode: '', scoringSettings: { 
+      quickfireWin: 0, challengeWin: 0, topThree: 0, bottomThree: 0, elimination: 0, finalWinner: 0 
+    }, currentWeek: 0, members: [] 
+  }),
   fetchChallenges: async () => ([])
 });
 
-export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+interface LeagueProviderProps {
+  children: ReactNode;
+}
+
+export function LeagueProvider({ children }: LeagueProviderProps) {
   // State
   const [leagues, setLeagues] = useState<League[]>([]);
   const [currentLeague, setCurrentLeague] = useState<League | null>(null);
@@ -167,7 +192,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const { user, isAuthenticated } = useAuth();
 
   // Convert Firestore data to our model
-  const convertLeagueData = (doc: DocumentData): League => {
+  const convertLeagueData = (doc: QueryDocumentSnapshot<DocumentData>): League => {
     const data = doc.data();
     return {
       _id: doc.id,
@@ -176,7 +201,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       season: data.season || 0,
       maxMembers: data.maxMembers || 10,
       maxRosterSize: data.maxRosterSize || 5,
-      status: data.status || 'draft',
+      status: (data.status as 'draft' | 'active' | 'completed') || 'draft',
       inviteCode: data.inviteCode || '',
       scoringSettings: data.scoringSettings || {
         quickfireWin: 10,
@@ -205,6 +230,8 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setError(null);
 
     try {
+      console.log('Setting up leagues listener for user:', user._id);
+      
       // Create a query to get leagues where the user is a member
       const leaguesQuery = query(
         collection(db, 'leagues'),
@@ -220,7 +247,9 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             leagueData.push(convertLeagueData(doc));
           });
 
+          console.log(`Loaded ${leagueData.length} leagues for user:`, user._id);
           setLeagues(leagueData);
+          
           // If we have leagues but no current league selected, select the first one
           if (leagueData.length > 0 && !currentLeague) {
             setCurrentLeague(leagueData[0]);
@@ -234,16 +263,20 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       );
 
-      return () => unsubscribe();
+      return () => {
+        console.log('Cleaning up leagues listener');
+        unsubscribe();
+      };
     } catch (err) {
       console.error('Error setting up leagues listener:', err);
       setError('Failed to load your leagues');
       setLoading(false);
+      return () => {}; // Empty cleanup function
     }
   }, [isAuthenticated, user?._id, currentLeague]);
 
   // Fetch all leagues for the user
-  const fetchUserLeagues = useCallback(async () => {
+  const fetchUserLeagues = useCallback(async (): Promise<void> => {
     if (!isAuthenticated || !user?._id) {
       setLeagues([]);
       return;
@@ -252,6 +285,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       setLoading(true);
       setError(null);
+      console.log('Fetching leagues for user:', user._id);
 
       // First try Firestore
       try {
@@ -266,6 +300,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           leagueData.push(convertLeagueData(doc));
         });
 
+        console.log(`Found ${leagueData.length} leagues for user:`, user._id);
         setLeagues(leagueData);
         if (leagueData.length > 0 && !currentLeague) {
           setCurrentLeague(leagueData[0]);
@@ -274,6 +309,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // If Firestore fails, fall back to API
         console.error('Firestore query failed, falling back to API:', firestoreErr);
         const response = await api.get('/leagues');
+        console.log('API returned leagues:', response.data?.length || 0);
         setLeagues(response.data || []);
         if (response.data?.length > 0 && !currentLeague) {
           setCurrentLeague(response.data[0]);
@@ -288,12 +324,13 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [isAuthenticated, user?._id, currentLeague]);
 
   // Fetch details for a specific league
-  const fetchLeagueDetails = useCallback(async (leagueId: string) => {
+  const fetchLeagueDetails = useCallback(async (leagueId: string): Promise<void> => {
     if (!leagueId) return;
 
     try {
       setLoading(true);
       setError(null);
+      console.log('Fetching details for league:', leagueId);
 
       // First try Firestore
       try {
@@ -304,8 +341,9 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           throw new Error('League not found');
         }
 
-        const leagueData = convertLeagueData(leagueDoc);
+        const leagueData = convertLeagueData(leagueDoc as QueryDocumentSnapshot<DocumentData>);
         setCurrentLeague(leagueData);
+        console.log('League details loaded:', leagueData.name);
 
         // Get all chefs
         const chefsQuery = query(collection(db, 'chefs'), orderBy('stats.totalPoints', 'desc'));
@@ -321,7 +359,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             hometown: data.hometown || '',
             specialty: data.specialty || '',
             image: data.image || '',
-            status: data.status || 'active',
+            status: (data.status as 'active' | 'eliminated' | 'winner') || 'active',
             eliminationWeek: data.eliminationWeek || null,
             stats: data.stats || {
               wins: 0,
@@ -335,6 +373,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
         
         setChefs(chefsData);
+        console.log(`Loaded ${chefsData.length} chefs`);
 
         // Get leaderboard data
         const leaderboardData: LeaderboardEntry[] = [];
@@ -356,6 +395,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // Sort by score (highest first)
         leaderboardData.sort((a, b) => b.score - a.score);
         setLeaderboard(leaderboardData);
+        console.log(`Leaderboard created with ${leaderboardData.length} entries`);
 
         // Get challenges for this season
         const challengesQuery = query(
@@ -383,28 +423,33 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             bottomChefs: data.bottomChefs || [],
             eliminatedChef: data.eliminatedChef || null,
             airDate: data.airDate?.toDate() || new Date(),
-            status: data.status || 'upcoming'
+            status: (data.status as 'upcoming' | 'completed') || 'upcoming'
           });
         });
         
         setChallenges(challengesData);
+        console.log(`Loaded ${challengesData.length} challenges for season ${leagueData.season}`);
       } catch (firestoreErr) {
         // If Firestore fails, fall back to API
         console.error('Firestore query failed, falling back to API:', firestoreErr);
         
         const leagueResponse = await api.get(`/leagues/${leagueId}`);
         setCurrentLeague(leagueResponse.data);
+        console.log('League details loaded via API');
         
         const chefsResponse = await api.get('/chefs');
         setChefs(chefsResponse.data || []);
+        console.log(`Loaded ${chefsResponse.data?.length || 0} chefs via API`);
         
         const leaderboardResponse = await api.get(`/leagues/${leagueId}/leaderboard`);
         setLeaderboard(leaderboardResponse.data || []);
+        console.log(`Loaded leaderboard via API`);
         
         const challengesResponse = await api.get('/challenges', {
           params: { season: leagueResponse.data.season }
         });
         setChallenges(challengesResponse.data || []);
+        console.log(`Loaded ${challengesResponse.data?.length || 0} challenges via API`);
       }
     } catch (err) {
       console.error('Error fetching league details:', err);
@@ -423,6 +468,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       setLoading(true);
       setError(null);
+      console.log('Creating new league:', leagueData.name);
 
       // Generate invite code (6 random uppercase alphanumeric characters)
       const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -443,7 +489,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           elimination: -15,
           finalWinner: 50
         },
-        status: 'draft',
+        status: 'draft' as const,
         currentWeek: 1,
         members: [{
           user: {
@@ -452,7 +498,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             email: user.email || '',
             avatar: user.avatar || ''
           },
-          role: 'owner',
+          role: 'owner' as const,
           score: 0,
           roster: [],
           joinedAt: new Date().toISOString()
@@ -467,13 +513,25 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           createdAt: serverTimestamp()
         });
 
+        console.log('League created with ID:', leagueRef.id);
+
         // Get the new league document
         const leagueDoc = await getDoc(leagueRef);
-        const league = convertLeagueData(leagueDoc);
+        if (!leagueDoc.exists()) {
+          throw new Error('Failed to retrieve created league');
+        }
+
+        const league: League = {
+          _id: leagueDoc.id,
+          ...newLeague,
+          // Overwrite with any server-generated values
+          createdAt: leagueDoc.data().createdAt?.toDate() || new Date()
+        };
 
         // Update leagues list
         setLeagues(prevLeagues => [...prevLeagues, league]);
         setCurrentLeague(league);
+        console.log('League created successfully:', league.name);
 
         return league;
       } catch (firestoreErr) {
@@ -484,6 +542,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         setLeagues(prevLeagues => [...prevLeagues, league]);
         setCurrentLeague(league);
+        console.log('League created via API:', league.name);
 
         return league;
       }
@@ -505,6 +564,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       setLoading(true);
       setError(null);
+      console.log('Joining league with code:', inviteCode);
 
       // First try Firestore
       try {
@@ -544,7 +604,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             email: user.email || '',
             avatar: user.avatar || ''
           },
-          role: 'member',
+          role: 'member' as const,
           score: 0,
           roster: [],
           joinedAt: new Date().toISOString()
@@ -553,14 +613,20 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         await updateDoc(doc(db, 'leagues', leagueDoc.id), {
           members: arrayUnion(newMember)
         });
+        console.log('Added user to league members');
 
         // Get updated league
         const updatedLeagueDoc = await getDoc(doc(db, 'leagues', leagueDoc.id));
-        const league = convertLeagueData(updatedLeagueDoc);
+        if (!updatedLeagueDoc.exists()) {
+          throw new Error('Failed to retrieve updated league');
+        }
+
+        const league = convertLeagueData(updatedLeagueDoc as QueryDocumentSnapshot<DocumentData>);
 
         // Update leagues list
         setLeagues(prevLeagues => [...prevLeagues, league]);
         setCurrentLeague(league);
+        console.log('Successfully joined league:', league.name);
 
         return league;
       } catch (firestoreErr) {
@@ -571,6 +637,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         setLeagues(prevLeagues => [...prevLeagues, league]);
         setCurrentLeague(league);
+        console.log('Joined league via API:', league.name);
 
         return league;
       }
@@ -587,10 +654,13 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const switchLeague = useCallback((leagueId: string) => {
     const league = leagues.find(l => l._id === leagueId);
     if (league) {
+      console.log('Switching to league:', league.name);
       setCurrentLeague(league);
       fetchLeagueDetails(leagueId).catch(err => {
         console.error('Error switching league:', err);
       });
+    } else {
+      console.warn('League not found in user leagues:', leagueId);
     }
   }, [leagues, fetchLeagueDetails]);
 
@@ -603,6 +673,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       setLoading(true);
       setError(null);
+      console.log('Updating league:', leagueId, updateData);
 
       // First try Firestore
       try {
@@ -625,19 +696,26 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           throw new Error('You do not have permission to update this league');
         }
 
+        // Create updates object with only the properties that need to be updated
+        const updates: Record<string, any> = {};
+        if (updateData.name) updates.name = updateData.name;
+        if (updateData.maxMembers) updates.maxMembers = updateData.maxMembers;
+        if (updateData.maxRosterSize) updates.maxRosterSize = updateData.maxRosterSize;
+        if (updateData.scoringSettings) updates.scoringSettings = updateData.scoringSettings;
+        if (updateData.status) updates.status = updateData.status;
+        if (updateData.currentWeek !== undefined) updates.currentWeek = updateData.currentWeek;
+
         // Update the league
-        await updateDoc(leagueRef, {
-          ...(updateData.name && { name: updateData.name }),
-          ...(updateData.maxMembers && { maxMembers: updateData.maxMembers }),
-          ...(updateData.maxRosterSize && { maxRosterSize: updateData.maxRosterSize }),
-          ...(updateData.scoringSettings && { scoringSettings: updateData.scoringSettings }),
-          ...(updateData.status && { status: updateData.status }),
-          ...(updateData.currentWeek && { currentWeek: updateData.currentWeek })
-        });
+        await updateDoc(leagueRef, updates);
+        console.log('League updated in Firestore');
 
         // Get updated league
         const updatedLeagueDoc = await getDoc(leagueRef);
-        const league = convertLeagueData(updatedLeagueDoc);
+        if (!updatedLeagueDoc.exists()) {
+          throw new Error('Failed to retrieve updated league');
+        }
+
+        const league = convertLeagueData(updatedLeagueDoc as QueryDocumentSnapshot<DocumentData>);
 
         // Update leagues list and current league
         setLeagues(prevLeagues => 
@@ -647,6 +725,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (currentLeague?._id === leagueId) {
           setCurrentLeague(league);
         }
+        console.log('League successfully updated:', league.name);
 
         return league;
       } catch (firestoreErr) {
@@ -663,6 +742,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (currentLeague?._id === leagueId) {
           setCurrentLeague(league);
         }
+        console.log('League updated via API:', league.name);
 
         return league;
       }
@@ -684,6 +764,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       setLoading(true);
       setError(null);
+      console.log('Drafting chef:', chefId, 'for league:', leagueId);
 
       // First try Firestore
       try {
@@ -748,10 +829,15 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         await updateDoc(leagueRef, {
           members: updatedMembers
         });
+        console.log('Chef drafted in Firestore');
 
         // Get the updated league
         const updatedLeagueDoc = await getDoc(leagueRef);
-        const league = convertLeagueData(updatedLeagueDoc);
+        if (!updatedLeagueDoc.exists()) {
+          throw new Error('Failed to retrieve updated league');
+        }
+
+        const league = convertLeagueData(updatedLeagueDoc as QueryDocumentSnapshot<DocumentData>);
 
         // Update leagues list and current league
         setLeagues(prevLeagues => 
@@ -761,6 +847,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (currentLeague?._id === leagueId) {
           setCurrentLeague(league);
         }
+        console.log('Chef successfully drafted');
 
         return league;
       } catch (firestoreErr) {
@@ -777,6 +864,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (currentLeague?._id === leagueId) {
           setCurrentLeague(league);
         }
+        console.log('Chef drafted via API');
 
         return league;
       }
@@ -794,6 +882,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       setLoading(true);
       setError(null);
+      console.log('Fetching challenges for season:', season);
 
       // First try Firestore
       try {
@@ -822,10 +911,11 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             bottomChefs: data.bottomChefs || [],
             eliminatedChef: data.eliminatedChef || null,
             airDate: data.airDate instanceof Timestamp ? data.airDate.toDate() : new Date(),
-            status: data.status || 'upcoming'
+            status: (data.status as 'upcoming' | 'completed') || 'upcoming'
           });
         });
         
+        console.log(`Loaded ${challengesData.length} challenges`);
         setChallenges(challengesData);
         return challengesData;
       } catch (firestoreErr) {
@@ -833,6 +923,7 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.error('Firestore operation failed, falling back to API:', firestoreErr);
         const response = await api.get('/challenges', { params: { season } });
         const challengesData = response.data || [];
+        console.log(`Loaded ${challengesData.length} challenges via API`);
         setChallenges(challengesData);
         return challengesData;
       }
@@ -885,4 +976,4 @@ export const LeagueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       {children}
     </LeagueContext.Provider>
   );
-};
+}
