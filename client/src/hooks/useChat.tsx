@@ -62,7 +62,7 @@ export function useChat(leagueId?: string): UseChatReturn {
     } catch (err) {
       console.error('Error fetching messages:', err);
       setError(err instanceof Error ? err.message : 
-        (err as any)?.response?.data?.message || 'Failed to load chat history');
+        (err as any)?.response?.data?.message ?? 'Failed to load chat history');
     } finally {
       setLoading(false);
     }
@@ -72,17 +72,21 @@ export function useChat(leagueId?: string): UseChatReturn {
   const handleNewMessage = useCallback((message: ChatMessage) => {
     console.log('Received new message via socket');
     setMessages((prev) => [...prev, message]);
+    // Remove user from typing list when they send a message
     setTypingUsers((prev) => prev.filter((u) => u.userId !== message.userId));
   }, []);
 
   // Handle user typing notification
   const handleUserTyping = useCallback(({ userId, username }: UserEvent) => {
+    // Skip if this is the current user typing
     if (userId === user?._id) return;
 
     console.log(`User typing: ${username}`);
     setTypingUsers((prev) => {
+      // Only add if not already in the list
       if (!prev.some((u) => u.userId === userId)) {
         const newTypingUsers = [...prev, { userId, username }];
+        // Auto-remove typing indicator after 3 seconds
         setTimeout(() => {
           setTypingUsers((current) => current.filter((u) => u.userId !== userId));
         }, 3000);
@@ -93,7 +97,7 @@ export function useChat(leagueId?: string): UseChatReturn {
   }, [user?._id]);
 
   // Handle user joined notification
-  const handleUserJoined = useCallback(({ userId, username }: UserEvent) => {
+  const handleUserJoined = useCallback(({ username }: UserEvent) => {
     console.log(`User joined: ${username}`);
     const systemMessage: ChatMessage = {
       _id: Date.now().toString(),
@@ -114,6 +118,7 @@ export function useChat(leagueId?: string): UseChatReturn {
       createdAt: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, systemMessage]);
+    // Remove user from typing list when they leave
     setTypingUsers((prev) => prev.filter((u) => u.userId !== userId));
   }, []);
 
@@ -170,7 +175,10 @@ export function useChat(leagueId?: string): UseChatReturn {
         leagueId,
         content,
         type: type as 'text' | 'system' | 'image',
-        sender: { _id: user._id, name: user.name || 'Unknown' },
+        sender: { 
+          _id: user._id, 
+          name: user.name ?? 'Unknown'
+        },
         createdAt: new Date().toISOString(),
       };
 
