@@ -1,11 +1,17 @@
 // client/src/App.tsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import LoadingScreen from './components/ui/LoadingScreen';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import Leagues from './pages/Leagues'; // Added this import
+import LeagueDetail from './pages/LeagueDetail';
+import ChefRoster from './pages/ChefRoster';
+import Schedule from './pages/Schedule';
+import Settings from './pages/Settings';
+import NotFound from './pages/NotFound';
 import MainLayout from './layouts/MainLayout';
 import AuthLayout from './layouts/AuthLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';

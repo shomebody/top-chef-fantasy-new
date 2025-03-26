@@ -1,4 +1,4 @@
-import { verifyToken } from '../utils/tokenUtils.js';
+import { auth } from '../config/firebase.js';
 
 // Socket event constants
 export const EVENTS = {
@@ -19,17 +19,17 @@ export const EVENTS = {
 // Setup Socket.io connections and event handlers
 const setupSocket = (io) => {
   // Authenticate Socket.io connections
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth.token;
       if (!token) {
         return next(new Error('Authentication error: No token provided'));
       }
-      const user = verifyToken(token);
-      if (!user) {
+      const decodedToken = await auth.verifyIdToken(token);
+      if (!decodedToken || !decodedToken.uid) {
         return next(new Error('Authentication error: Invalid token'));
       }
-      socket.user = user;
+      socket.user = { id: decodedToken.uid, name: decodedToken.name || decodedToken.email };
       next();
     } catch (error) {
       console.error('Socket authentication error:', error.stack); // Detailed logging
