@@ -1,12 +1,10 @@
 // client/src/App.tsx
-import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import LoadingScreen from './components/ui/LoadingScreen';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
-import Leagues from './pages/Leagues'; // Added this import
+import Leagues from './pages/Leagues'; // This is a component, not a variable
 import LeagueDetail from './pages/LeagueDetail';
 import ChefRoster from './pages/ChefRoster';
 import Schedule from './pages/Schedule';
@@ -19,47 +17,26 @@ import { useAuth } from './hooks/useAuth';
 
 const App = () => {
   const { isAuthenticated, loading } = useAuth();
-  const [appReady, setAppReady] = useState(false);
-  
-  useEffect(() => {
-    // Ensure auth state is fully loaded before showing the app
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log('Auth State Update');
-      console.log('isAuthenticated:', isAuthenticated);
-      console.log('loading:', loading);
-      console.log('user:', user);
-      
-      if (!loading) {
-        console.log('Auth loading complete, setting appReady timer');
-        // Short delay to ensure all auth hooks are fully processed
-        const timer = setTimeout(() => {
-          console.log('App ready set to true');
-          setAppReady(true);
-        }, 100);
-        return () => clearTimeout(timer);
-      }
-    });
-    
-    return () => unsubscribe();
-  }, [loading, isAuthenticated]);
-  
-  if (loading || !appReady) {
-    console.log('Rendering LoadingScreen - loading:', loading, 'appReady:', appReady);
+
+  if (loading) {
     return <LoadingScreen />;
   }
-  
-  console.log('Rendering main App - authenticated:', isAuthenticated);
-  
+
   return (
     <Routes>
-      {/* Public routes */}
+      {/* Public routes with AuthLayout */}
       <Route element={<AuthLayout />}>
-        <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
-        <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
+        <Route
+          path="/login"
+          element={!isAuthenticated ? <Login /> : <Navigate to="/" />}
+        />
+        <Route
+          path="/register"
+          element={!isAuthenticated ? <Register /> : <Navigate to="/" />}
+        />
       </Route>
-      
-      {/* Protected routes */}
+
+      {/* Protected routes with MainLayout */}
       <Route element={<ProtectedRoute />}>
         <Route element={<MainLayout />}>
           <Route path="/" element={<Dashboard />} />
@@ -70,8 +47,9 @@ const App = () => {
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Route>
-      
-      {/* Catch-all route */}
+
+      {/* Default redirect and catch-all */}
+      <Route index element={<Navigate to={isAuthenticated ? "/" : "/login"} />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
