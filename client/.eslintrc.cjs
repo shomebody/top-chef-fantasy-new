@@ -13,7 +13,7 @@ module.exports = {
   parserOptions: { 
     ecmaVersion: 'latest', 
     sourceType: 'module',
-    project: './tsconfig.json' // Link to your TS config
+   project: './client/tsconfig.json'
   },
   settings: { react: { version: '19.0' } },
   plugins: ['react-refresh', '@typescript-eslint'],

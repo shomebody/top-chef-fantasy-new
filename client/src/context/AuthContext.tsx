@@ -2,7 +2,7 @@
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   User as FirebaseUser,
- createUserWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
@@ -13,14 +13,10 @@ import {
   reauthenticateWithCredential,
   updatePassword,
   applyActionCode,
-
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
-/**
- * User profile interface extending Firebase User data with app-specific fields
- */
 export interface UserProfile {
   _id: string;
   name: string;
@@ -30,18 +26,12 @@ export interface UserProfile {
   avatar?: string;
 }
 
-/**
- * Data required for user registration
- */
 export interface RegisterData {
   name: string;
   email: string;
   password: string;
 }
 
-/**
- * Data for updating user profile
- */
 export interface UpdateProfileData {
   name?: string;
   email?: string;
@@ -50,9 +40,6 @@ export interface UpdateProfileData {
   avatar?: string;
 }
 
-/**
- * Authentication context interface defining all auth-related functionality
- */
 export interface AuthContextProps {
   user: UserProfile | null;
   isAuthenticated: boolean;
@@ -68,7 +55,6 @@ export interface AuthContextProps {
   setError: (error: string | null) => void;
 }
 
-// Create context with default values
 export const AuthContext = createContext<AuthContextProps>({
   user: null,
   isAuthenticated: false,
@@ -84,56 +70,40 @@ export const AuthContext = createContext<AuthContextProps>({
   setError: () => {}
 });
 
-/**
- * Maps Firebase auth errors to user-friendly messages
- */
 const mapFirebaseError = (error: any): string => {
   const errorCode = error.code || '';
   const errorMessage = error.message || 'An unknown error occurred';
-  
-  // Common Firebase error codes
   switch (errorCode) {
-    case 'auth/invalid-email':
-      return 'Invalid email address format';
-    case 'auth/user-disabled':
-      return 'This account has been disabled';
-    case 'auth/user-not-found':
-      return 'No account found with this email';
-    case 'auth/wrong-password':
-      return 'Incorrect password';
-    case 'auth/email-already-in-use':
-      return 'Email already in use';
-    case 'auth/weak-password':
-      return 'Password is too weak';
-    case 'auth/operation-not-allowed':
-      return 'Operation not allowed';
-    case 'auth/requires-recent-login':
-      return 'Please log in again before retrying this request';
-    case 'auth/too-many-requests':
-      return 'Too many unsuccessful login attempts. Please try again later';
-    case 'auth/network-request-failed':
-      return 'Network error. Please check your connection';
-    default:
-      return errorMessage;
+    case 'auth/invalid-email': return 'Invalid email address format';
+    case 'auth/user-disabled': return 'This account has been disabled';
+    case 'auth/user-not-found': return 'No account found with this email';
+    case 'auth/wrong-password': return 'Incorrect password';
+    case 'auth/email-already-in-use': return 'Email already in use';
+    case 'auth/weak-password': return 'Password is too weak';
+    case 'auth/operation-not-allowed': return 'Operation not allowed';
+    case 'auth/requires-recent-login': return 'Please log in again before retrying this request';
+    case 'auth/too-many-requests': return 'Too many unsuccessful login attempts. Please try again later';
+    case 'auth/network-request-failed': return 'Network error. Please check your connection';
+    default: return errorMessage;
   }
 };
 
-/**
- * Converts Firebase user data to UserProfile format
- */
 const formatUserProfile = async (firebaseUser: FirebaseUser): Promise<UserProfile> => {
-  // Get additional user data from Firestore
+  console.log('formatUserProfile started for user:', firebaseUser.uid);
   let userData: any = {};
   try {
+    console.log('Fetching Firestore doc for user:', firebaseUser.uid);
     const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
     if (userDoc.exists()) {
       userData = userDoc.data();
+      console.log('Firestore data fetched:', userData);
+    } else {
+      console.log('No Firestore data for user:', firebaseUser.uid);
     }
   } catch (error) {
     console.error('Error fetching user data:', error);
   }
-  
-  return {
+  const profile = {
     _id: firebaseUser.uid,
     name: userData.name || firebaseUser.displayName || '',
     email: userData.email || firebaseUser.email || '',
@@ -141,84 +111,84 @@ const formatUserProfile = async (firebaseUser: FirebaseUser): Promise<UserProfil
     emailVerified: firebaseUser.emailVerified,
     avatar: userData.avatar || firebaseUser.photoURL || ''
   };
+  console.log('formatUserProfile completed:', profile);
+  return profile;
 };
 
-export function AuthProvider({ children }: { children: React.ReactNode }): React.ReactNode {  const [user, setUser] = useState<UserProfile | null>(null);
+export function AuthProvider({ children }: { children: React.ReactNode }): React.ReactNode {
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Listen for Firebase auth state changes
   useEffect(() => {
+    console.log('AuthProvider effect running');
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('onAuthStateChanged fired, firebaseUser:', firebaseUser ? firebaseUser.uid : 'null');
       setLoading(true);
-      
+      console.log('Set loading to true');
       try {
         if (firebaseUser) {
+          console.log('User detected, formatting profile');
           const userProfile = await formatUserProfile(firebaseUser);
+          console.log('Setting user:', userProfile);
           setUser(userProfile);
+          console.log('Setting isAuthenticated to true');
           setIsAuthenticated(true);
         } else {
+          console.log('No user, clearing state');
           setUser(null);
+          console.log('Setting isAuthenticated to false');
           setIsAuthenticated(false);
         }
       } catch (err) {
         console.error('Auth state change error:', err);
         setError(mapFirebaseError(err));
       } finally {
+        console.log('Finally block: Setting loading to false');
         setLoading(false);
       }
     });
-    
-    // Cleanup function
-    return () => unsubscribe();
+    console.log('AuthProvider effect subscribed');
+    return () => {
+      console.log('Unsubscribing auth listener');
+      unsubscribe();
+    };
   }, []);
 
-  /**
-   * Log in user with email and password
-   */
   const login = useCallback(async (email: string, password: string): Promise<UserProfile | null> => {
+    console.log('Login called with:', email);
     try {
       setLoading(true);
+      console.log('Set loading to true for login');
       setError(null);
-      
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      console.log('User signed in:', userCredential.user.uid);
       const userProfile = await formatUserProfile(userCredential.user);
-      
+      console.log('Login successful:', userProfile);
       return userProfile;
     } catch (err) {
       console.error('Login error:', err);
       setError(mapFirebaseError(err));
       return null;
     } finally {
+      console.log('Login finally: Setting loading to false');
       setLoading(false);
     }
   }, []);
 
-  /**
-   * Register new user with email and password
-   */
   const register = useCallback(async (userData: RegisterData): Promise<UserProfile | null> => {
+    console.log('Register called with:', userData.email);
     try {
       setLoading(true);
+      console.log('Set loading to true for register');
       setError(null);
-      
-      // Create user in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(
-        auth, 
-        userData.email, 
-        userData.password
-      );
-      
-      // Update display name
-      await firebaseUpdateProfile(userCredential.user, {
-        displayName: userData.name
-      });
-      
-      // Optional: Send email verification
+      const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
+      console.log('User created:', userCredential.user.uid);
+      await firebaseUpdateProfile(userCredential.user, { displayName: userData.name });
+      console.log('Profile updated with name');
       await sendEmailVerification(userCredential.user);
-      
-      // Store additional user data in Firestore
+      console.log('Verification email sent');
       await setDoc(doc(db, 'users', userCredential.user.uid), {
         name: userData.name,
         email: userData.email,
@@ -226,165 +196,149 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
         leagues: [],
         createdAt: serverTimestamp()
       });
-      
+      console.log('Firestore user doc set');
       const userProfile = await formatUserProfile(userCredential.user);
+      console.log('Register successful:', userProfile);
       return userProfile;
     } catch (err) {
       console.error('Registration error:', err);
       setError(mapFirebaseError(err));
       return null;
     } finally {
+      console.log('Register finally: Setting loading to false');
       setLoading(false);
     }
   }, []);
 
-  /**
-   * Log out current user
-   */
   const logout = useCallback(async (): Promise<void> => {
+    console.log('Logout called');
     try {
       setLoading(true);
+      console.log('Set loading to true for logout');
       await signOut(auth);
+      console.log('User signed out');
     } catch (err) {
       console.error('Logout error:', err);
       setError(mapFirebaseError(err));
     } finally {
+      console.log('Logout finally: Setting loading to false');
       setLoading(false);
     }
   }, []);
 
-  /**
-   * Update user profile information
-   */
   const updateProfile = useCallback(async (userData: UpdateProfileData): Promise<UserProfile | null> => {
+    console.log('UpdateProfile called with:', userData);
     try {
       setLoading(true);
+      console.log('Set loading to true for updateProfile');
       setError(null);
-      
       const currentUser = auth.currentUser;
       if (!currentUser) {
         throw new Error('No user logged in');
       }
-      
-      // If updating password, need to reauthenticate first
       if (userData.password && userData.currentPassword) {
-        const credential = EmailAuthProvider.credential(
-          currentUser.email || '',
-          userData.currentPassword
-        );
-        
+        const credential = EmailAuthProvider.credential(currentUser.email || '', userData.currentPassword);
         await reauthenticateWithCredential(currentUser, credential);
+        console.log('User reauthenticated');
         await updatePassword(currentUser, userData.password);
+        console.log('Password updated');
       }
-      
       const updates: Record<string, any> = {};
-      
-      // Update name in Firebase Auth and Firestore
       if (userData.name) {
-        await firebaseUpdateProfile(currentUser, {
-          displayName: userData.name
-        });
+        await firebaseUpdateProfile(currentUser, { displayName: userData.name });
         updates.name = userData.name;
+        console.log('Name updated');
       }
-      
-      // Update avatar if provided
       if (userData.avatar) {
-        await firebaseUpdateProfile(currentUser, {
-          photoURL: userData.avatar
-        });
+        await firebaseUpdateProfile(currentUser, { photoURL: userData.avatar });
         updates.avatar = userData.avatar;
+        console.log('Avatar updated');
       }
-      
-      // Update Firestore document if changes
       if (Object.keys(updates).length > 0) {
         await updateDoc(doc(db, 'users', currentUser.uid), updates);
+        console.log('Firestore doc updated');
       }
-      
-      // Return updated user profile
       const updatedUser = await formatUserProfile(currentUser);
+      console.log('Profile update successful:', updatedUser);
       setUser(updatedUser);
-      
       return updatedUser;
     } catch (err) {
       console.error('Update profile error:', err);
       setError(mapFirebaseError(err));
       return null;
     } finally {
+      console.log('UpdateProfile finally: Setting loading to false');
       setLoading(false);
     }
   }, []);
 
-  /**
-   * Send password reset email to specified address
-   */
   const resetPassword = useCallback(async (email: string): Promise<boolean> => {
+    console.log('ResetPassword called with:', email);
     try {
       setLoading(true);
+      console.log('Set loading to true for resetPassword');
       setError(null);
-      
       await sendPasswordResetEmail(auth, email);
+      console.log('Password reset email sent');
       return true;
     } catch (err) {
       console.error('Reset password error:', err);
       setError(mapFirebaseError(err));
       return false;
     } finally {
+      console.log('ResetPassword finally: Setting loading to false');
       setLoading(false);
     }
   }, []);
 
-  /**
-   * Send email verification to current user
-   */
   const sendVerificationEmail = useCallback(async (): Promise<boolean> => {
+    console.log('SendVerificationEmail called');
     try {
       setLoading(true);
+      console.log('Set loading to true for sendVerificationEmail');
       setError(null);
-      
       const currentUser = auth.currentUser;
       if (!currentUser) {
         throw new Error('No user logged in');
       }
-      
       await sendEmailVerification(currentUser);
+      console.log('Verification email sent');
       return true;
     } catch (err) {
       console.error('Send verification email error:', err);
       setError(mapFirebaseError(err));
       return false;
     } finally {
+      console.log('SendVerificationEmail finally: Setting loading to false');
       setLoading(false);
     }
   }, []);
 
-  /**
-   * Verify email with action code
-   */
   const verifyEmail = useCallback(async (actionCode: string): Promise<boolean> => {
+    console.log('VerifyEmail called with actionCode:', actionCode);
     try {
       setLoading(true);
+      console.log('Set loading to true for verifyEmail');
       setError(null);
-      
-      // Apply the email verification code
       await applyActionCode(auth, actionCode);
-      
-      // If user is logged in, refresh the user
+      console.log('Email verification code applied');
       if (auth.currentUser) {
         const userProfile = await formatUserProfile(auth.currentUser);
+        console.log('User profile refreshed:', userProfile);
         setUser(userProfile);
       }
-      
+      console.log('Email verification successful');
       return true;
     } catch (err) {
       console.error('Verify email error:', err);
       setError(mapFirebaseError(err));
       return false;
     } finally {
+      console.log('VerifyEmail finally: Setting loading to false');
       setLoading(false);
     }
   }, []);
 
-  // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
     user,
     isAuthenticated,
@@ -398,19 +352,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     sendVerificationEmail,
     verifyEmail,
     setError
-  }), [
-    user, 
-    isAuthenticated, 
-    loading, 
-    error, 
-    login, 
-    logout, 
-    register, 
-    updateProfile, 
-    resetPassword, 
-    sendVerificationEmail, 
-    verifyEmail
-  ]);
+  }), [user, isAuthenticated, loading, error, login, logout, register, updateProfile, resetPassword, sendVerificationEmail, verifyEmail]);
 
   return (
     <AuthContext.Provider value={contextValue}>

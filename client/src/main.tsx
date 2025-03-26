@@ -1,27 +1,26 @@
-import React from 'react';
+// client/src/main.tsx
 import { createRoot } from 'react-dom/client';
 import './index.css';
-import App from './App.jsx';
-import { AuthProvider } from './context/AuthContext.jsx';
-import { ThemeProvider } from './context/ThemeContext.jsx';
-import { SocketProvider } from './context/SocketContext.jsx';
+import App from './App';
+import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
+import { SocketProvider } from './context/SocketContext';
+import { LeagueProvider } from './context/LeagueContext';
 import { BrowserRouter } from 'react-router-dom';
 
-// React 19 createRoot 
 const container = document.getElementById('root');
-const root = createRoot(container);
+const root = createRoot(container!);
 
 root.render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <ThemeProvider>
-          <SocketProvider>
+  <BrowserRouter>
+    <AuthProvider>
+      <ThemeProvider>
+        <SocketProvider>
+          <LeagueProvider>
             <App />
-          </SocketProvider>
-        </ThemeProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  </React.StrictMode>
+          </LeagueProvider>
+        </SocketProvider>
+      </ThemeProvider>
+    </AuthProvider>
+  </BrowserRouter>
 );
-

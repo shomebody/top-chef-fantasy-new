@@ -13,7 +13,7 @@
     "allowImportingTsExtensions": false,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "types": ["react", "react-dom",],
+    "types": ["react", "react-dom", "node"],
     "noEmit": true,
     "jsx": "react-jsx",
     "jsxImportSource": "react",

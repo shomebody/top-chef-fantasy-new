@@ -7,72 +7,71 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import FirebaseAuthTest from '../components/FirebaseAuthTest';
 
-// Define types for our component
 interface LeaderboardEntry {
-  user: {
-    _id: string;
-    name: string;
-  };
+  user: { _id: string; name: string };
   score: number;
   rosterCount: number;
 }
 
-function Dashboard() {
+const Dashboard = () => {
+  console.log('Dashboard render started');
+  
   const { currentLeague, leaderboard, loading, error, fetchLeagueDetails } = useLeague();
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  
-  // Set document title
+
   useEffect(() => {
+    console.log('Dashboard useEffect for title running');
     document.title = 'Dashboard | Top Chef Fantasy';
-    
-    // Preload league details page
     const link = document.createElement('link');
     link.rel = 'prefetch';
     link.href = '/leagues';
     document.head.appendChild(link);
-    
     return () => {
-      if (document.head.contains(link)) {
-        document.head.removeChild(link);
-      }
+      console.log('Dashboard useEffect cleanup');
+      if (document.head.contains(link)) document.head.removeChild(link);
     };
   }, []);
-  
+
   useEffect(() => {
-    if (currentLeague?._id) {
-      console.log('Fetching league details for:', currentLeague._id);
-      fetchLeagueDetails(currentLeague._id)
-        .catch(error => {
-          console.error('Error fetching league details:', error);
-        });
+    if (currentLeague?._id && !loading && !error) {
+      console.log('Dashboard useEffect fetching league details for:', currentLeague._id);
+      fetchLeagueDetails(currentLeague._id).catch(err => {
+        console.error('Error fetching league details:', (err as Error).message || err);
+      });
     }
-  }, [currentLeague?._id, fetchLeagueDetails]);
-  
+  }, [currentLeague?._id, fetchLeagueDetails, loading, error]);
+
   const handleRefresh = async () => {
-    if (!currentLeague?._id) return;
-    
+    if (!currentLeague?._id) {
+      console.log('No current league to refresh');
+      return;
+    }
     try {
       setRefreshing(true);
+      console.log('handleRefresh started');
       await fetchLeagueDetails(currentLeague._id);
       console.log('Dashboard data refreshed successfully');
-    } catch (error) {
-      console.error('Error refreshing data:', error);
+    } catch (err) {
+      console.error('Error refreshing data:', (err as Error).message || err);
     } finally {
       setRefreshing(false);
+      console.log('handleRefresh completed');
     }
   };
-  
-  // Memoized greeting
+
   const greeting = useMemo(() => {
+    console.log('Computing greeting');
     const name = user?.name || 'Chef';
     const time = new Date().getHours();
-    
     if (time < 12) return `Good morning, ${name}!`;
     if (time < 18) return `Good afternoon, ${name}!`;
     return `Good evening, ${name}!`;
   }, [user?.name]);
-    if (loading) {
+
+  console.log('Dashboard rendering, loading:', loading, 'currentLeague:', !!currentLeague, 'error:', error);
+
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-full p-8">
         <svg 
@@ -99,14 +98,32 @@ function Dashboard() {
       </div>
     );
   }
-  
-  // No leagues state
+
+  if (error) {
+    console.log('Rendering error state:', error);
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-center p-6">
+        <h1 className="text-2xl font-bold text-red-600">Error Loading Dashboard</h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-2">{error}</p>
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={() => window.location.reload()}
+          className="mt-4"
+        >
+          Reload Page
+        </Button>
+      </div>
+    );
+  }
+
   if (!currentLeague) {
+    console.log('Rendering no leagues state');
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-6">
         <div className="text-4xl font-display text-primary-600 mb-4">{greeting}</div>
         <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md">
-          You're not part of any leagues yet. Create a new league or join an existing one to get started!
+          Youre not part of any leagues yet. Create a new league or join an existing one to get started!
         </p>
         <div className="flex flex-wrap gap-4 justify-center">
           <Link to="/leagues">
@@ -116,7 +133,6 @@ function Dashboard() {
             <Button variant="outline" size="lg">Profile Settings</Button>
           </Link>
         </div>
-        
         <div className="mt-8 w-full max-w-md">
           <Card title="Firebase Authentication">
             <FirebaseAuthTest />
@@ -125,7 +141,8 @@ function Dashboard() {
       </div>
     );
   }
-  
+
+  console.log('Dashboard rendering main content');
   return (
     <div className="space-y-6 p-4">
       <div className="flex justify-between items-center">
@@ -145,32 +162,19 @@ function Dashboard() {
           </Link>
         </div>
       </div>
-      
-      {error && (
-        <div className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 p-4 rounded-lg">
-          {error}
-        </div>
-      )}
-      
       <Card title="Firebase Authentication">
         <FirebaseAuthTest />
       </Card>
-      
-      <Card 
-        title={currentLeague.name} 
-        subtitle={`Season ${currentLeague.season}`}
-      >
+      <Card title={currentLeague.name} subtitle={`Season ${currentLeague.season}`}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
             <div className="text-sm text-gray-600 dark:text-gray-400">League Status</div>
             <div className="text-xl font-semibold mt-1 capitalize">{currentLeague.status}</div>
           </div>
-          
           <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
             <div className="text-sm text-gray-600 dark:text-gray-400">Current Week</div>
             <div className="text-xl font-semibold mt-1">Week {currentLeague.currentWeek}</div>
           </div>
-          
           <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
             <div className="text-sm text-gray-600 dark:text-gray-400">Members</div>
             <div className="text-xl font-semibold mt-1">
@@ -179,7 +183,6 @@ function Dashboard() {
           </div>
         </div>
       </Card>
-      
       <Card title="Leaderboard" subtitle="Current standings">
         <div className="overflow-x-auto">
           <table className="min-w-full">
@@ -220,7 +223,6 @@ function Dashboard() {
           </table>
         </div>
       </Card>
-      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card title="Quick Actions">
           <div className="space-y-4">
@@ -240,11 +242,10 @@ function Dashboard() {
             </div>
           </div>
         </Card>
-        
         <Card title="Current Challenge" subtitle={`Week ${currentLeague.currentWeek}`}>
           <div className="space-y-4">
             <p className="text-gray-600 dark:text-gray-400">
-              Make your picks for this week's challenge before it airs!
+              Make your picks for this weeks challenge before it airs!
             </p>
             <Link to="/schedule">
               <Button variant="primary" size="sm" type="button">Make Predictions</Button>
@@ -254,6 +255,6 @@ function Dashboard() {
       </div>
     </div>
   );
-}
+};
 
 export default Dashboard;

@@ -1,3 +1,4 @@
+// client/src/App.tsx
 import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LoadingScreen from './components/ui/LoadingScreen';
@@ -14,22 +15,29 @@ import MainLayout from './layouts/MainLayout';
 import AuthLayout from './layouts/AuthLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import { useAuth } from './hooks/useAuth';
-import { SocketProvider } from './context/SocketContext';
-import { auth, storage } from './config/firebase'; // Use centralized instances
+import { getAuth } from 'firebase/auth';
 
-// Error Boundary Component
 const ErrorBoundary = ({ children }: { children: React.ReactNode }) => {
   const [hasError, setHasError] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const errorHandler = (event: ErrorEvent) => {
-      console.error('Uncaught error:', event.error);
+      console.error('Uncaught error caught by ErrorBoundary:', event.error);
       setHasError(true);
       setError(event.error?.message || 'An unexpected error occurred');
     };
+    const unhandledRejectionHandler = (event: PromiseRejectionEvent) => {
+      console.error('Unhandled promise rejection:', event.reason);
+      setHasError(true);
+      setError(event.reason?.message || 'Unhandled promise rejection');
+    };
     window.addEventListener('error', errorHandler);
-    return () => window.removeEventListener('error', errorHandler);
+    window.addEventListener('unhandledrejection', unhandledRejectionHandler);
+    return () => {
+      window.removeEventListener('error', errorHandler);
+      window.removeEventListener('unhandledrejection', unhandledRejectionHandler);
+    };
   }, []);
 
   if (hasError) {
@@ -52,50 +60,44 @@ const ErrorBoundary = ({ children }: { children: React.ReactNode }) => {
 const App = (): React.JSX.Element => {
   const { isAuthenticated, loading } = useAuth();
 
+  console.log('App render:', { isAuthenticated, loading });
+
   useEffect(() => {
-    // Log Firebase Storage initialization (should only happen once via firebase.ts)
-    console.log('Firebase Storage available from firebase.ts:', storage);
-
-    // No socket logic here; handled by SocketProvider
+    console.log('App effect running');
+    const auth = getAuth();
     const unsubscribe = auth.onIdTokenChanged(async (user) => {
-      if (user) {
-        console.log('Auth state changed: User authenticated');
-      } else {
-        console.log('Auth state changed: No authenticated user');
-      }
+      console.log('Auth state changed:', user ? 'User authenticated' : 'No authenticated user');
     });
-
-    return () => {
-      unsubscribe();
-    };
-  }, []); // Empty dependency array since we rely on SocketProvider for socket logic
+    return () => unsubscribe();
+  }, []);
 
   if (loading) {
+    console.log('Rendering LoadingScreen');
     return <LoadingScreen />;
   }
 
+  console.log('Rendering Routes, isAuthenticated:', isAuthenticated);
+
   return (
     <ErrorBoundary>
-      <SocketProvider>
-        <Routes>
-          <Route element={<AuthLayout />}>
-            <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
-            <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
+      <Routes>
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
+          <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
+        </Route>
+        <Route element={<ProtectedRoute />}>
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/leagues" element={<Leagues />} />
+            <Route path="/leagues/:id" element={<LeagueDetail />} />
+            <Route path="/chefs" element={<ChefRoster />} />
+            <Route path="/schedule" element={<Schedule />} />
+            <Route path="/settings" element={<Settings />} />
           </Route>
-          <Route element={<ProtectedRoute />}>
-            <Route element={<MainLayout />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/leagues" element={<Leagues />} />
-              <Route path="/leagues/:id" element={<LeagueDetail />} />
-              <Route path="/chefs" element={<ChefRoster />} />
-              <Route path="/schedule" element={<Schedule />} />
-              <Route path="/settings" element={<Settings />} />
-            </Route>
-          </Route>
-          <Route index element={<Navigate to={isAuthenticated ? '/' : '/login'} />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </SocketProvider>
+        </Route>
+        <Route index element={<Navigate to={isAuthenticated ? '/' : '/login'} />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
     </ErrorBoundary>
   );
 };
