@@ -1,9 +1,16 @@
-import React from 'react';
+// client/src/components/ui/Button.tsx
+import { ButtonHTMLAttributes, ReactNode } from 'react';
 
-/**
- * Button component with proper TypeScript support
- */
-const Button = ({ 
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  children?: ReactNode;
+  variant?: 'primary' | 'secondary' | 'outline' | 'danger';
+  size?: 'sm' | 'md' | 'lg';
+  fullWidth?: boolean;
+  isLoading?: boolean;
+  icon?: ReactNode;
+}
+
+function Button({ 
   children = null, 
   variant = 'primary', 
   size = 'md', 
@@ -11,14 +18,10 @@ const Button = ({
   isLoading = false, 
   disabled = false, 
   icon = null,
-  onClick = () => {},
   type = 'button', 
   className = '',
   ...props 
-}) => {
-  // Narrow the type to only allowed HTML button types
-  const buttonType = (type === 'submit' || type === 'reset' || type === 'button') ? type : 'button';
-  
+}: ButtonProps) {
   const baseClasses = 'inline-flex items-center justify-center rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2';
   
   const variantClasses = {
@@ -36,8 +39,8 @@ const Button = ({
   
   const classes = `
     ${baseClasses}
-    ${variantClasses[variant] || variantClasses.primary}
-    ${sizeClasses[size] || sizeClasses.md}
+    ${variantClasses[variant]}
+    ${sizeClasses[size]}
     ${fullWidth ? 'w-full' : ''}
     ${isLoading || disabled ? 'opacity-60 cursor-not-allowed' : ''}
     ${className}
@@ -45,10 +48,10 @@ const Button = ({
   
   return (
     <button
-      type={buttonType}
-      onClick={onClick}
+      type={type}
       disabled={disabled || isLoading}
       className={classes}
+      data-testid="button"
       {...props}
     >
       {isLoading ? (
@@ -67,6 +70,6 @@ const Button = ({
       )}
     </button>
   );
-};
+}
 
 export default Button;

@@ -1,19 +1,19 @@
-// client/src/pages/Login.jsx
-import { useState } from 'react';
+// client/src/pages/Login.tsx
+import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
-import AuthService from '../services/authService'; // Corrected import
+import AuthService from '../services/authService';
 
-const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [formError, setFormError] = useState('');
-  const { login, loading, error, setError } = useAuth();
+function Login() {
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [formError, setFormError] = useState<string>('');
+  const { login, loading, error, } = useAuth();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError('');
     
@@ -26,21 +26,21 @@ const Login = () => {
       const result = await login(email, password);
       console.log('Login successful:', !!result);
     } catch (err) {
-      console.error('Login error:', err.response?.data || err.message);
+      console.error('Login error:', err instanceof Error ? err.message : 'Unknown error');
     }
-  };
+  }, [email, password, login]);
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = useCallback(async () => {
     try {
       await AuthService.signInWithGoogle();
       // AuthContext will handle state update after popup or redirect
     } catch (err) {
-      setFormError(err.message || 'Failed to sign in with Google');
+      setFormError(err instanceof Error ? err.message : 'Failed to sign in with Google');
       console.error('Google login error:', err);
     }
-  };
+  }, []);
 
-  const handleForgotPassword = async () => {
+  const handleForgotPassword = useCallback(async () => {
     if (!email) {
       setFormError('Please enter your email address');
       return;
@@ -51,10 +51,10 @@ const Login = () => {
       setFormError('');
       alert('Password reset email sent! Check your inbox.');
     } catch (err) {
-      setFormError(err.message || 'Failed to send reset email');
+      setFormError(err instanceof Error ? err.message : 'Failed to send reset email');
       console.error('Password reset error:', err);
     }
-  };
+  }, [email]);
 
   return (
     <Card padding="lg" className="animate-fade-in">
@@ -158,6 +158,6 @@ const Login = () => {
       </div>
     </Card>
   );
-};
+}
 
 export default Login;

@@ -1,65 +1,76 @@
-import React, { forwardRef } from 'react';
+import { forwardRef, ChangeEvent } from 'react';
 
-/**
- * Input component
- */
-const Input = forwardRef(function Input(props, ref) {
-  // Destructure props with defaults after function declaration
-  const {
-    label = '',
-    error = '',
-    type = 'text',
-    id = '',
-    name = '',
-    placeholder = '',
-    required = false,
-    disabled = false,
-    helper = '',
-    className = '',
-    onChange = () => {},
-    ...rest
-  } = props;
+interface InputProps {
+  label?: string;
+  error?: string;
+  type?: string;
+  id?: string;
+  name?: string;
+  placeholder?: string;
+  required?: boolean;
+  disabled?: boolean;
+  helper?: string;
+  className?: string;
+  onChange?: (e: ChangeEvent<HTMLInputElement>) => void;
+  // Add any other props that might be needed
+  value?: string | number;
+}
 
-  const inputId = id || name || `input-${Math.random().toString(36).substr(2, 9)}`;
-
-  const inputClasses = `w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} ${disabled ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : 'bg-white dark:bg-gray-800'} dark:text-white ${className}`;
-
+const Input = forwardRef<HTMLInputElement, InputProps>(({
+  label,
+  error,
+  type = 'text',
+  id,
+  name,
+  placeholder,
+  required = false,
+  disabled = false,
+  helper,
+  className = '',
+  onChange,
+  ...rest
+}, ref) => {
+  const inputClasses = `
+    w-full px-3 py-2 border rounded-md 
+    ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'} 
+    ${disabled ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : 'bg-white dark:bg-gray-900'}
+    focus:outline-none focus:ring-2 focus:ring-primary-400 dark:focus:ring-primary-600
+    ${className}
+  `;
+  
   return (
     <div className="mb-4">
       {label && (
-        <label htmlFor={inputId} className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-          {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+        <label htmlFor={id} className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+          {label} {required && <span className="text-red-500">*</span>}
         </label>
       )}
+      
       <input
         ref={ref}
         type={type}
-        id={inputId}
+        id={id}
         name={name}
-        className={inputClasses}
         placeholder={placeholder}
-        disabled={disabled}
         required={required}
+        disabled={disabled}
         onChange={onChange}
-        aria-invalid={!!error}
-        aria-describedby={error ? `${inputId}-error` : helper ? `${inputId}-helper` : undefined}
+        className={inputClasses}
         {...rest}
       />
-      {error && (
-        <p className="mt-1 text-sm text-red-600 dark:text-red-400" id={`${inputId}-error`}>
-          {error}
-        </p>
-      )}
+      
       {helper && !error && (
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400" id={`${inputId}-helper`}>
-          {helper}
-        </p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{helper}</p>
+      )}
+      
+      {error && (
+        <p className="mt-1 text-sm text-red-500">{error}</p>
       )}
     </div>
   );
 });
 
+// Add display name for React DevTools
 Input.displayName = 'Input';
 
 export default Input;

@@ -1,16 +1,40 @@
-// client/src/pages/ChefRoster.jsx
-import React, { useState } from 'react';
-import { useChef } from '../hooks/useChef.jsx';
-import { useLeague } from '../hooks/useLeague.jsx';
-import Card from '../components/ui/Card.jsx';
-import Button from '../components/ui/Button.jsx';
+// client/src/pages/ChefRoster.tsx
+import { useState } from 'react';
+import { useChef } from '../hooks/useChef';
+import { useLeague } from '../hooks/useLeague';
+import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
 
-const ChefRoster = () => {
+interface ChefData {
+  _id: string;
+  name: string;
+  bio: string;
+  hometown: string;
+  specialty: string;
+  image: string;
+  status: 'active' | 'eliminated' | 'winner';
+  eliminationWeek: number | null;
+  stats: {
+    wins: number;
+    eliminations: number;
+    quickfireWins: number;
+    challengeWins: number;
+    totalPoints: number;
+  };
+  weeklyPerformance: Array<{
+    week: number;
+    points: number;
+    rank: number;
+    highlights: string;
+  }>;
+}
+
+function ChefRoster() {
   const { chefs, loading, error } = useChef();
   const { currentLeague } = useLeague();
-  const [selectedChef, setSelectedChef] = useState(null);
+  const [selectedChef, setSelectedChef] = useState<ChefData | null>(null);
   
-  const handleSelectChef = (chef) => {
+  const handleSelectChef = (chef: ChefData) => {
     setSelectedChef(chef);
   };
   
@@ -34,7 +58,12 @@ const ChefRoster = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Chef Roster</h1>
         {currentLeague && currentLeague.status === 'draft' && (
-          <Button variant="primary" size="sm">Draft Chef</Button>
+            <Button variant="primary" size="sm">
+              <span>
+                Draft Chef
+                {currentLeague && <span className="ml-2 text-xs text-gray-500">({currentLeague.name})</span>}
+              </span>
+            </Button>
         )}
       </div>
       
@@ -59,6 +88,8 @@ const ChefRoster = () => {
                       src={chef.image} 
                       alt={chef.name} 
                       className="w-full h-full object-cover rounded-full"
+                      width={64}
+                      height={64}
                     />
                   ) : (
                     <span className="text-2xl text-gray-600 dark:text-gray-400">
@@ -98,6 +129,8 @@ const ChefRoster = () => {
                 <button
                   onClick={closeChefDetails}
                   className="p-1 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
+                  type="button"
+                  aria-label="Close details"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -114,6 +147,8 @@ const ChefRoster = () => {
                           src={selectedChef.image} 
                           alt={selectedChef.name} 
                           className="w-full h-full object-cover rounded-lg"
+                          width={300}
+                          height={300}
                         />
                       ) : (
                         <span className="text-6xl text-gray-600 dark:text-gray-400">
@@ -214,6 +249,6 @@ const ChefRoster = () => {
       )}
     </div>
   );
-};
+}
 
 export default ChefRoster;

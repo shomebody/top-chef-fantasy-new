@@ -1,5 +1,5 @@
 // client/src/pages/Dashboard.tsx
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useLeague } from '../hooks/useLeague';
 import { useAuth } from '../hooks/useAuth';
@@ -17,13 +17,31 @@ interface LeaderboardEntry {
   rosterCount: number;
 }
 
-const Dashboard: React.FC = () => {
+function Dashboard() {
   const { currentLeague, leaderboard, loading, error, fetchLeagueDetails } = useLeague();
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState<boolean>(false);
   
+  // Set document title
+  useEffect(() => {
+    document.title = 'Dashboard | Top Chef Fantasy';
+    
+    // Preload league details page
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = '/leagues';
+    document.head.appendChild(link);
+    
+    return () => {
+      if (document.head.contains(link)) {
+        document.head.removeChild(link);
+      }
+    };
+  }, []);
+  
   useEffect(() => {
     if (currentLeague?._id) {
+      console.log('Fetching league details for:', currentLeague._id);
       fetchLeagueDetails(currentLeague._id)
         .catch(error => {
           console.error('Error fetching league details:', error);
@@ -37,6 +55,7 @@ const Dashboard: React.FC = () => {
     try {
       setRefreshing(true);
       await fetchLeagueDetails(currentLeague._id);
+      console.log('Dashboard data refreshed successfully');
     } catch (error) {
       console.error('Error refreshing data:', error);
     } finally {
@@ -44,8 +63,16 @@ const Dashboard: React.FC = () => {
     }
   };
   
-  // Loading state
-  if (loading) {
+  // Memoized greeting
+  const greeting = useMemo(() => {
+    const name = user?.name || 'Chef';
+    const time = new Date().getHours();
+    
+    if (time < 12) return `Good morning, ${name}!`;
+    if (time < 18) return `Good afternoon, ${name}!`;
+    return `Good evening, ${name}!`;
+  }, [user?.name]);
+    if (loading) {
     return (
       <div className="flex justify-center items-center h-full p-8">
         <svg 
@@ -77,7 +104,7 @@ const Dashboard: React.FC = () => {
   if (!currentLeague) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-6">
-        <div className="text-4xl font-display text-primary-600 mb-4">Welcome, {user?.name || 'Chef'}!</div>
+        <div className="text-4xl font-display text-primary-600 mb-4">{greeting}</div>
         <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md">
           You're not part of any leagues yet. Create a new league or join an existing one to get started!
         </p>
@@ -90,7 +117,6 @@ const Dashboard: React.FC = () => {
           </Link>
         </div>
         
-        {/* Firebase Authentication Test Card */}
         <div className="mt-8 w-full max-w-md">
           <Card title="Firebase Authentication">
             <FirebaseAuthTest />
@@ -110,6 +136,7 @@ const Dashboard: React.FC = () => {
             size="sm" 
             onClick={handleRefresh}
             isLoading={refreshing}
+            type="button"
           >
             Refresh
           </Button>
@@ -125,12 +152,10 @@ const Dashboard: React.FC = () => {
         </div>
       )}
       
-      {/* Firebase Authentication Test Card */}
       <Card title="Firebase Authentication">
         <FirebaseAuthTest />
       </Card>
       
-      {/* League Overview */}
       <Card 
         title={currentLeague.name} 
         subtitle={`Season ${currentLeague.season}`}
@@ -149,13 +174,12 @@ const Dashboard: React.FC = () => {
           <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
             <div className="text-sm text-gray-600 dark:text-gray-400">Members</div>
             <div className="text-xl font-semibold mt-1">
-              {currentLeague.members?.length || 0} / {currentLeague.maxMembers}
+              {currentLeague.members?.length ?? 0} / {currentLeague.maxMembers}
             </div>
           </div>
         </div>
       </Card>
       
-      {/* Leaderboard */}
       <Card title="Leaderboard" subtitle="Current standings">
         <div className="overflow-x-auto">
           <table className="min-w-full">
@@ -197,7 +221,6 @@ const Dashboard: React.FC = () => {
         </div>
       </Card>
       
-      {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card title="Quick Actions">
           <div className="space-y-4">
@@ -206,13 +229,13 @@ const Dashboard: React.FC = () => {
             </p>
             <div className="flex flex-wrap gap-3">
               <Link to="/chefs">
-                <Button variant="secondary" size="sm">View Chefs</Button>
+                <Button variant="secondary" size="sm" type="button">View Chefs</Button>
               </Link>
               <Link to="/schedule">
-                <Button variant="secondary" size="sm">View Schedule</Button>
+                <Button variant="secondary" size="sm" type="button">View Schedule</Button>
               </Link>
               <Link to={`/leagues/${currentLeague._id}/roster`}>
-                <Button variant="outline" size="sm">Manage Roster</Button>
+                <Button variant="outline" size="sm" type="button">Manage Roster</Button>
               </Link>
             </div>
           </div>
@@ -224,13 +247,13 @@ const Dashboard: React.FC = () => {
               Make your picks for this week's challenge before it airs!
             </p>
             <Link to="/schedule">
-              <Button variant="primary" size="sm">Make Predictions</Button>
+              <Button variant="primary" size="sm" type="button">Make Predictions</Button>
             </Link>
           </div>
         </Card>
       </div>
     </div>
   );
-};
+}
 
 export default Dashboard;

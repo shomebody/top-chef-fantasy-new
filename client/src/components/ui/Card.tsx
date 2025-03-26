@@ -1,5 +1,19 @@
 import React from 'react';
 
+type PaddingSize = 'none' | 'sm' | 'md' | 'lg';
+
+interface CardProps {
+  children: React.ReactNode;
+  title?: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+  className?: string;
+  padding?: PaddingSize;
+  hover?: boolean;
+  bordered?: boolean;
+  onClick?: () => void; // Added onClick property
+}
+
 const Card = ({ 
   children, 
   title = '',
@@ -8,8 +22,9 @@ const Card = ({
   className = '',
   padding = 'md',
   hover = false,
-  bordered = false
-}) => {
+  bordered = false,
+  onClick
+}: CardProps) => {
   const paddingClasses = {
     none: '',
     sm: 'p-3',
@@ -29,7 +44,7 @@ const Card = ({
   `;
   
   return (
-    <div className={cardClass}>
+    <div className={cardClass} onClick={onClick}>
       {(title || action) && (
         <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <div>
@@ -39,7 +54,7 @@ const Card = ({
           {action && <div>{action}</div>}
         </div>
       )}
-      <div className={paddingClasses[padding] || paddingClasses.md}>
+      <div className={paddingClasses[padding]}>
         {children}
       </div>
     </div>
