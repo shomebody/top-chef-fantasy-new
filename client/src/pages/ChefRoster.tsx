@@ -3,9 +3,10 @@ import { useChef } from '../hooks/useChef';
 import { useLeague } from '../hooks/useLeague';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { getStorage, ref, getDownloadURL } from 'firebase/storage';
+import { ref, getDownloadURL } from 'firebase/storage';
+import { storage } from '../config/firebase';
+import { useSocket, EVENTS } from '../context/SocketContext';
 
-// Define ChefData interface
 interface ChefData {
   _id: string;
   name: string;
@@ -30,7 +31,6 @@ interface ChefData {
   }>;
 }
 
-// Loading spinner component
 const LoadingSpinner = () => (
   <div className="flex justify-center items-center h-full">
     <svg
@@ -39,14 +39,7 @@ const LoadingSpinner = () => (
       fill="none"
       viewBox="0 0 24 24"
     >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path
         className="opacity-75"
         fill="currentColor"
@@ -56,17 +49,8 @@ const LoadingSpinner = () => (
   </div>
 );
 
-// Memoized ChefCard component
 const ChefCard = memo(
-  ({
-    chef,
-    onClick,
-    imageUrl,
-  }: {
-    chef: ChefData;
-    onClick: () => void;
-    imageUrl: string | null | undefined;
-  }) => {
+  ({ chef, onClick, imageUrl }: { chef: ChefData; onClick: () => void; imageUrl: string | null | undefined }) => {
     console.log(`Rendering ChefCard for ${chef.name}, imageUrl: ${imageUrl}`);
     return (
       <Card className="cursor-pointer card-hover" onClick={onClick}>
@@ -81,9 +65,7 @@ const ChefCard = memo(
                 height={64}
               />
             ) : (
-              <span className="text-2xl text-gray-600 dark:text-gray-400">
-                {chef.name.charAt(0)}
-              </span>
+              <span className="text-2xl text-gray-600 dark:text-gray-400">{chef.name.charAt(0)}</span>
             )}
           </div>
           <div>
@@ -91,9 +73,7 @@ const ChefCard = memo(
             <p className="text-sm text-gray-600 dark:text-gray-400">{chef.specialty}</p>
             <div className="mt-2 flex items-center">
               <span className="text-xs font-medium px-2 py-1 rounded-full">{chef.status}</span>
-              <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
-                {chef.stats.totalPoints} pts
-              </span>
+              <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">{chef.stats.totalPoints} pts</span>
             </div>
           </div>
         </div>
@@ -103,16 +83,22 @@ const ChefCard = memo(
 );
 
 function ChefRoster() {
-  const { chefs, loading, error } = useChef() as {
-    chefs: ChefData[] | undefined;
-    loading: boolean;
-    error: string | null;
-  };
+  const { chefs: contextChefs, loading, error } = useChef();
   const { currentLeague } = useLeague();
+  const { socket, connected } = useSocket();
+  const [localChefs, setLocalChefs] = useState<ChefData[]>([]);
   const [selectedChef, setSelectedChef] = useState<ChefData | null>(null);
   const [imageUrls, setImageUrls] = useState<{ [key: string]: string | null }>({});
 
-  console.log('ChefRoster render', { loading, error, chefsLength: chefs?.length });
+  // Sync localChefs with contextChefs when contextChefs changes
+  useEffect(() => {
+    if (contextChefs) {
+      console.log('Syncing localChefs with contextChefs', contextChefs.length);
+      setLocalChefs(contextChefs);
+    }
+  }, [contextChefs]);
+
+  console.log('ChefRoster render', { loading, error, chefsLength: localChefs.length, socketConnected: connected });
 
   const handleSelectChef = (chef: ChefData) => {
     console.log(`Selected chef: ${chef.name}`);
@@ -126,11 +112,10 @@ function ChefRoster() {
 
   // Fetch image URLs for all chefs
   useEffect(() => {
-    if (chefs && chefs.length > 0) {
-      console.log('Fetching images for chefs', chefs.map((c) => c.name));
+    if (localChefs.length > 0) {
+      console.log('Fetching images for chefs', localChefs.map((c) => c.name));
       const fetchImages = async () => {
-        const storage = getStorage();
-        const imagePromises = chefs.map(async (chef) => {
+        const imagePromises = localChefs.map(async (chef) => {
           if (chef.image && imageUrls[chef._id] === undefined) {
             try {
               console.log(`Fetching image for ${chef.name}`);
@@ -151,20 +136,39 @@ function ChefRoster() {
       };
       fetchImages();
     }
-  }, [chefs]);
+  }, [localChefs]);
+
+  // Handle real-time chef updates via socket
+  useEffect(() => {
+    if (socket && connected) {
+      console.log('Setting up socket listener for chef updates');
+      socket.on(EVENTS.CHEF_UPDATE, (updatedChef: ChefData) => {
+        console.log('Received chef update via socket:', updatedChef);
+        setLocalChefs((prevChefs) =>
+          prevChefs.map((chef) => (chef._id === updatedChef._id ? { ...chef, ...updatedChef } : chef))
+        );
+        if (selectedChef?._id === updatedChef._id) {
+          setSelectedChef((prev) => (prev ? { ...prev, ...updatedChef } : prev));
+        }
+      });
+    }
+
+    return () => {
+      if (socket) {
+        console.log('Cleaning up socket listener for chef updates');
+        socket.off(EVENTS.CHEF_UPDATE);
+      }
+    };
+  }, [socket, connected]);
 
   if (loading) {
     console.log('Rendering loading state');
     return <LoadingSpinner />;
   }
 
-  if (!chefs) {
+  if (!contextChefs) {
     console.log('No chefs data available');
-    return (
-      <div className="text-center py-10 text-gray-500 dark:text-gray-400">
-        Error: No chef data available
-      </div>
-    );
+    return <div className="text-center py-10 text-gray-500 dark:text-gray-400">Error: No chef data available</div>;
   }
 
   return (
@@ -175,21 +179,17 @@ function ChefRoster() {
           <Button variant="primary" size="sm">
             <span>
               Draft Chef
-              {currentLeague && (
-                <span className="ml-2 text-xs text-gray-500">({currentLeague.name})</span>
-              )}
+              {currentLeague && <span className="ml-2 text-xs text-gray-500">({currentLeague.name})</span>}
             </span>
           </Button>
         )}
       </div>
       {error && (
-        <div className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 p-4 rounded-lg">
-          {error}
-        </div>
+        <div className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 p-4 rounded-lg">{error}</div>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {chefs.length > 0 ? (
-          chefs.map((chef) => (
+        {localChefs.length > 0 ? (
+          localChefs.map((chef) => (
             <ChefCard
               key={chef._id}
               chef={chef}
@@ -198,9 +198,7 @@ function ChefRoster() {
             />
           ))
         ) : (
-          <div className="col-span-full text-center py-10 text-gray-500 dark:text-gray-400">
-            No chefs available.
-          </div>
+          <div className="col-span-full text-center py-10 text-gray-500 dark:text-gray-400">No chefs available.</div>
         )}
       </div>
       {selectedChef && (
@@ -208,9 +206,7 @@ function ChefRoster() {
           <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
             <div className="p-6">
               <div className="flex justify-between items-start">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {selectedChef.name}
-                </h2>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedChef.name}</h2>
                 <button
                   onClick={closeChefDetails}
                   className="p-1 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
@@ -224,12 +220,7 @@ function ChefRoster() {
                     viewBox="0 0 24 24"
                     stroke="currentColor"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
@@ -246,9 +237,7 @@ function ChefRoster() {
                           height={300}
                         />
                       ) : (
-                        <span className="text-6xl text-gray-600 dark:text-gray-400">
-                          {selectedChef.name.charAt(0)}
-                        </span>
+                        <span className="text-6xl text-gray-600 dark:text-gray-400">{selectedChef.name.charAt(0)}</span>
                       )}
                     </div>
                     <div className="space-y-3">
@@ -272,35 +261,25 @@ function ChefRoster() {
                     <h3 className="font-medium text-lg mb-3">Statistics</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          Challenge Wins
-                        </span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Challenge Wins</span>
                         <p className="text-xl font-semibold">{selectedChef.stats.challengeWins}</p>
                       </div>
                       <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          Quickfire Wins
-                        </span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Quickfire Wins</span>
                         <p className="text-xl font-semibold">{selectedChef.stats.quickfireWins}</p>
                       </div>
                       <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          Total Points
-                        </span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Total Points</span>
                         <p className="text-xl font-semibold">{selectedChef.stats.totalPoints}</p>
                       </div>
                       <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          Eliminations
-                        </span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Eliminations</span>
                         <p className="text-xl font-semibold">{selectedChef.stats.eliminations}</p>
                       </div>
                     </div>
                     {currentLeague && currentLeague.status === 'draft' && (
                       <div className="mt-6">
-                        <Button variant="primary" fullWidth>
-                          Draft Chef
-                        </Button>
+                        <Button variant="primary" fullWidth>Draft Chef</Button>
                       </div>
                     )}
                   </div>
@@ -328,10 +307,7 @@ function ChefRoster() {
                         </thead>
                         <tbody>
                           {selectedChef.weeklyPerformance.map((week) => (
-                            <tr
-                              key={week.week}
-                              className="border-b border-gray-200 dark:border-gray-700"
-                            >
+                            <tr key={week.week} className="border-b border-gray-200 dark:border-gray-700">
                               <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                                 Week {week.week}
                               </td>
@@ -341,18 +317,14 @@ function ChefRoster() {
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                                 {week.rank}
                               </td>
-                              <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                {week.highlights}
-                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{week.highlights}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
                   ) : (
-                    <p className="text-gray-500 dark:text-gray-400">
-                      No performance data available.
-                    </p>
+                    <p className="text-gray-500 dark:text-gray-400">No performance data available.</p>
                   )}
                 </div>
               </div>

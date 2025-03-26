@@ -14,9 +14,8 @@ import MainLayout from './layouts/MainLayout';
 import AuthLayout from './layouts/AuthLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import { useAuth } from './hooks/useAuth';
-import { io, Socket } from 'socket.io-client';
-import { getAuth, onIdTokenChanged, User } from 'firebase/auth';
-import { getStorage } from 'firebase/storage';
+import { SocketProvider } from './context/SocketContext';
+import { auth, storage } from './config/firebase'; // Use centralized instances
 
 // Error Boundary Component
 const ErrorBoundary = ({ children }: { children: React.ReactNode }) => {
@@ -54,66 +53,22 @@ const App = (): React.JSX.Element => {
   const { isAuthenticated, loading } = useAuth();
 
   useEffect(() => {
-    let socket: Socket | undefined;
-    const auth = getAuth();
+    // Log Firebase Storage initialization (should only happen once via firebase.ts)
+    console.log('Firebase Storage available from firebase.ts:', storage);
 
-    // Test Storage initialization
-    try {
-      const storage = getStorage();
-      console.log('Firebase Storage initialized successfully:', storage);
-    } catch (error) {
-      console.error('Firebase Storage initialization failed:', error);
-    }
-
-    const connectSocket = async (): Promise<void> => {
-      if (!isAuthenticated || !auth.currentUser) {
-        console.log('No authenticated user, not connecting to socket');
-        return;
-      }
-      try {
-        const token = await auth.currentUser.getIdToken();
-        console.log('Connecting to socket with Firebase token');
-        socket = io(`http://localhost:${import.meta.env.VITE_BACKEND_PORT || '5000'}`, {
-          auth: { token },
-        });
-        socket.on('connect', () => console.log('Socket connected'));
-        socket.on('connect_error', (err: Error) =>
-          console.error('Socket connection error:', err.message)
-        );
-      } catch (error: unknown) {
-        console.error(
-          'Socket initialization error:',
-          error instanceof Error ? error.message : String(error)
-        );
-      }
-    };
-
-    void connectSocket();
-
-    const unsubscribe = onIdTokenChanged(auth, async (user: User | null) => {
+    // No socket logic here; handled by SocketProvider
+    const unsubscribe = auth.onIdTokenChanged(async (user) => {
       if (user) {
-        try {
-          const newToken = await user.getIdToken();
-          if (socket) {
-            socket.auth = { token: newToken } as { token: string };
-            socket.disconnect().connect();
-          } else {
-            await connectSocket();
-          }
-        } catch (error) {
-          console.error('Token refresh error:', error);
-        }
-      } else if (socket) {
-        socket.disconnect();
-        socket = undefined;
+        console.log('Auth state changed: User authenticated');
+      } else {
+        console.log('Auth state changed: No authenticated user');
       }
     });
 
-    return (): void => {
+    return () => {
       unsubscribe();
-      if (socket) socket.disconnect();
     };
-  }, [isAuthenticated]);
+  }, []); // Empty dependency array since we rely on SocketProvider for socket logic
 
   if (loading) {
     return <LoadingScreen />;
@@ -121,24 +76,26 @@ const App = (): React.JSX.Element => {
 
   return (
     <ErrorBoundary>
-      <Routes>
-        <Route element={<AuthLayout />}>
-          <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
-          <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
-        </Route>
-        <Route element={<ProtectedRoute />}>
-          <Route element={<MainLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/leagues" element={<Leagues />} />
-            <Route path="/leagues/:id" element={<LeagueDetail />} />
-            <Route path="/chefs" element={<ChefRoster />} />
-            <Route path="/schedule" element={<Schedule />} />
-            <Route path="/settings" element={<Settings />} />
+      <SocketProvider>
+        <Routes>
+          <Route element={<AuthLayout />}>
+            <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
+            <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
           </Route>
-        </Route>
-        <Route index element={<Navigate to={isAuthenticated ? '/' : '/login'} />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+          <Route element={<ProtectedRoute />}>
+            <Route element={<MainLayout />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/leagues" element={<Leagues />} />
+              <Route path="/leagues/:id" element={<LeagueDetail />} />
+              <Route path="/chefs" element={<ChefRoster />} />
+              <Route path="/schedule" element={<Schedule />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
+          </Route>
+          <Route index element={<Navigate to={isAuthenticated ? '/' : '/login'} />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </SocketProvider>
     </ErrorBoundary>
   );
 };

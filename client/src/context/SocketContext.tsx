@@ -1,10 +1,13 @@
 // client/src/context/SocketContext.tsx
-import { createContext, useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { createContext, useState, useEffect, useMemo, useCallback, useContext, type ReactNode } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { useAuth } from '../hooks/useAuth';
-import { getAuth } from 'firebase/auth';
+import { auth } from '../config/firebase';
 
-// Socket event constants
+// Singleton socket instance
+let socketInstance: Socket | null = null;
+const hasInitialized = { current: false };
+
 export const EVENTS = {
   CONNECTION: 'connection',
   DISCONNECT: 'disconnect',
@@ -20,7 +23,6 @@ export const EVENTS = {
   SCORE_UPDATE: 'score_update',
 } as const;
 
-// Define context type
 interface SocketContextType {
   socket: Socket | null;
   connected: boolean;
@@ -46,27 +48,41 @@ interface SocketProviderProps {
 }
 
 export function SocketProvider({ children }: SocketProviderProps) {
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(socketInstance);
   const [connected, setConnected] = useState(false);
   const { user } = useAuth();
-  const auth = getAuth();
 
   useEffect(() => {
+    console.log('SocketProvider effect running, user:', user ? user._id : 'none');
+
     if (!user?._id) {
       console.log('No authenticated user, not connecting to socket');
+      if (socketInstance) {
+        console.log('Disconnecting existing socket due to no user');
+        socketInstance.disconnect();
+        socketInstance = null;
+        setSocket(null);
+        setConnected(false);
+        hasInitialized.current = false;
+      }
+      return;
+    }
+
+    if (hasInitialized.current && socketInstance?.connected) {
+      console.log('Socket already connected, skipping initialization');
+      setSocket(socketInstance);
+      setConnected(true);
       return;
     }
 
     const connectSocket = async () => {
       try {
-        // Get Firebase token instead of localStorage
         const firebaseToken = await auth.currentUser?.getIdToken(true);
-        
         if (!firebaseToken) {
           console.log('No Firebase token available');
           return;
         }
-        
+
         console.log('Connecting to socket with Firebase token');
         const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
         const newSocket = io(socketUrl, {
@@ -83,6 +99,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
         newSocket.on('disconnect', () => {
           console.log('Socket disconnected');
           setConnected(false);
+          hasInitialized.current = false;
         });
 
         newSocket.on('connect_error', (error) => {
@@ -90,62 +107,60 @@ export function SocketProvider({ children }: SocketProviderProps) {
           setConnected(false);
         });
 
+        socketInstance = newSocket;
         setSocket(newSocket);
+        hasInitialized.current = true;
       } catch (err) {
-        console.error('Error getting Firebase token:', err);
+        console.error('Error connecting socket:', err);
       }
     };
 
     connectSocket();
 
     return () => {
-      if (socket) {
-        console.log('Disconnecting socket');
-        socket.disconnect();
+      // Only clean up on unmount, not on every effect run
+    };
+  }, [user?._id]);
+
+  useEffect(() => {
+    return () => {
+      if (socketInstance && !user?._id) {
+        console.log('Disconnecting socket on unmount');
+        socketInstance.disconnect();
+        socketInstance = null;
         setSocket(null);
         setConnected(false);
+        hasInitialized.current = false;
       }
     };
-  }, [user?._id, auth.currentUser]);
+  }, []); // Separate cleanup effect with no dependencies
 
-  const joinLeague = useCallback(
-    (leagueId: string) => {
-      if (socket && connected) {
-        console.log(`Joining league socket: ${leagueId}`);
-        socket.emit(EVENTS.JOIN_LEAGUE, { leagueId });
-      }
-    },
-    [socket, connected]
-  );
+  const joinLeague = useCallback((leagueId: string) => {
+    if (socket && connected) {
+      console.log(`Joining league socket: ${leagueId}`);
+      socket.emit(EVENTS.JOIN_LEAGUE, { leagueId });
+    }
+  }, [socket, connected]);
 
-  const leaveLeague = useCallback(
-    (leagueId: string) => {
-      if (socket && connected) {
-        console.log(`Leaving league socket: ${leagueId}`);
-        socket.emit(EVENTS.LEAVE_LEAGUE, { leagueId });
-      }
-    },
-    [socket, connected]
-  );
+  const leaveLeague = useCallback((leagueId: string) => {
+    if (socket && connected) {
+      console.log(`Leaving league socket: ${leagueId}`);
+      socket.emit(EVENTS.LEAVE_LEAGUE, { leagueId });
+    }
+  }, [socket, connected]);
 
-  const sendMessage = useCallback(
-    (message: any) => {
-      if (socket && connected) {
-        console.log('Sending message via socket');
-        socket.emit(EVENTS.SEND_MESSAGE, message);
-      }
-    },
-    [socket, connected]
-  );
+  const sendMessage = useCallback((message: any) => {
+    if (socket && connected) {
+      console.log('Sending message via socket');
+      socket.emit(EVENTS.SEND_MESSAGE, message);
+    }
+  }, [socket, connected]);
 
-  const sendTyping = useCallback(
-    (leagueId: string) => {
-      if (socket && connected) {
-        socket.emit(EVENTS.USER_TYPING, { leagueId });
-      }
-    },
-    [socket, connected]
-  );
+  const sendTyping = useCallback((leagueId: string) => {
+    if (socket && connected) {
+      socket.emit(EVENTS.USER_TYPING, { leagueId });
+    }
+  }, [socket, connected]);
 
   const value = useMemo(
     () => ({
@@ -162,3 +177,11 @@ export function SocketProvider({ children }: SocketProviderProps) {
 
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
 }
+
+export const useSocket = () => {
+  const context = useContext(SocketContext);
+  if (!context) {
+    throw new Error('useSocket must be used within a SocketProvider');
+  }
+  return context;
+};
