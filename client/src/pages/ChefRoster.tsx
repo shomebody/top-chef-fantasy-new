@@ -81,7 +81,7 @@ const ChefCard = memo(
     );
   }
 );
-
+ChefCard.displayName = 'ChefCard'; // Add this
 function ChefRoster() {
   const { chefs: contextChefs, loading, error } = useChef();
   const { currentLeague } = useLeague();
@@ -136,7 +136,7 @@ function ChefRoster() {
       };
       fetchImages();
     }
-  }, [localChefs]);
+  }, [localChefs, imageUrls]);
 
   // Handle real-time chef updates via socket
   useEffect(() => {
@@ -152,14 +152,13 @@ function ChefRoster() {
         }
       });
     }
-
     return () => {
       if (socket) {
         console.log('Cleaning up socket listener for chef updates');
         socket.off(EVENTS.CHEF_UPDATE);
       }
     };
-  }, [socket, connected]);
+  }, [socket, connected, selectedChef]);
 
   if (loading) {
     console.log('Rendering loading state');

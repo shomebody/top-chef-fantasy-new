@@ -150,7 +150,7 @@ function Login() {
       
       <div className="mt-6 text-center">
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Don't have an account?{' '}
+          No Account? 
           <Link to="/register" className="text-primary-600 hover:text-primary-500 dark:text-primary-400 font-medium">
             Sign up
           </Link>

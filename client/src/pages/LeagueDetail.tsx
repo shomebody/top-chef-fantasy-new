@@ -1,51 +1,68 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, Navigate, Link } from 'react-router-dom';
-import { useLeague } from '../hooks/useLeague.jsx';
-import { useChat } from '../hooks/useChat.jsx';
-import { useAuth } from '../hooks/useAuth.jsx';
-import Card from '../components/ui/Card.jsx';
-import Button from '../components/ui/Button.jsx';
+import { useEffect, useState, FormEvent } from 'react';
+import { useParams, Navigate } from 'react-router-dom';
+import { useLeague, UseLeagueReturn } from '../hooks/useLeague';
+import { useChat, UseChatReturn } from '../hooks/useChat';
+import { useAuth, UserProfile } from '../hooks/useAuth';
+import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
+
+// Enhanced League type from league.d.ts
+interface League {
+  _id: string;
+  name: string;
+  season: number;
+  status: 'draft' | 'active' | 'completed';
+  currentWeek: number;
+  maxMembers: number;
+  maxRosterSize: number;
+  members: { user: { _id: string; name: string }; role: 'owner' | 'admin' | 'member'; score: number }[];
+  inviteCode?: string; // Added
+  scoringSettings?: {
+    challengeWin: number;
+    quickfireWin: number;
+    topThree: number;
+    bottomThree: number;
+  }; // Added
+}
 
 const LeagueDetail = () => {
-  const { id } = useParams();
-  const { leagues = [], currentLeague = null, leaderboard = [], loading = false, error = null, fetchLeagueDetails = () => {}, switchLeague = () => {} } = useLeague();
-  const { user = null } = useAuth();
-  const [activeTab, setActiveTab] = useState('overview');
-  const [chatInput, setChatInput] = useState('');
-  const [chatError, setChatError] = useState('');
-  const [localError, setLocalError] = useState('');
-  
-  // Get chat functionality with proper defaults for React 19
-  const { 
-    messages = [], 
-    sendMessage = () => {}, 
-    typingUsers = [],
-    loading: chatLoading = false,
-    error: chatFetchError = null
-  } = useChat(id);
+  const { id } = useParams<{ id: string }>();
+  const {
+    leagues = [],
+    currentLeague = null,
+    leaderboard = [],
+    loading = false,
+    error = null,
+    fetchLeagueDetails = () => Promise.resolve(undefined),
+    switchLeague = () => {},
+  }: UseLeagueReturn = useLeague();
+  const { user = null }: { user: UserProfile | null } = useAuth();
+  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'settings' | 'chat'>('overview');
+  const [chatInput, setChatInput] = useState<string>('');
+  const [chatError, setChatError] = useState<string>('');
+  const [localError, setLocalError] = useState<string>('');
+
+  const { messages = [], sendMessage = () => Promise.resolve(), typingUsers = [] }: UseChatReturn = useChat(id);
 
   useEffect(() => {
     if (id) {
       if (!currentLeague || currentLeague._id !== id) {
         switchLeague(id);
       }
-      
-      fetchLeagueDetails(id)
-        .catch(err => {
-          console.error('Fetch league details failed:', err);
-          setLocalError('Failed to load league details. Please try again.');
-        });
+      fetchLeagueDetails(id).catch((err: Error) => {
+        console.error('Fetch league details failed:', err);
+        setLocalError('Failed to load league details. Please try again.');
+      });
     }
   }, [id, currentLeague, fetchLeagueDetails, switchLeague]);
 
-  // Check if the league exists in the user's leagues
   const leagueExists = leagues.some((league) => league._id === id);
 
   if (!leagueExists && !loading) {
     return <Navigate to="/leagues" />;
   }
 
-  const handleSendMessage = async (e) => {
+  const handleSendMessage = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (chatInput.trim() && id) {
       try {
@@ -60,8 +77,7 @@ const LeagueDetail = () => {
   };
 
   const isLeagueAdmin = currentLeague?.members?.some(
-    member => member.user._id === user?._id && 
-    (member.role === 'owner' || member.role === 'admin')
+    (member) => member.user._id === user?._id && (member.role === 'owner' || member.role === 'admin')
   );
 
   if (loading) {
@@ -73,12 +89,12 @@ const LeagueDetail = () => {
           fill="none"
           viewBox="0 0 24 24"
         >
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path
             className="opacity-75"
             fill="currentColor"
             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          ></path>
+          />
         </svg>
       </div>
     );
@@ -94,7 +110,6 @@ const LeagueDetail = () => {
 
   return (
     <div className="space-y-6 p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
-      {/* League Header */}
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
         <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
           <div>
@@ -104,29 +119,28 @@ const LeagueDetail = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => {
                 if (currentLeague?.inviteCode) {
-                  navigator.clipboard.writeText(currentLeague.inviteCode)
+                  navigator.clipboard
+                    .writeText(currentLeague.inviteCode)
                     .then(() => alert('Invite code copied!'))
-                    .catch(err => console.error('Failed to copy:', err));
+                    .catch((err) => console.error('Failed to copy:', err));
                 }
               }}
             >
               Copy Invite Code
             </Button>
             {isLeagueAdmin && (
-              <Button 
-                variant="primary" 
+              <Button
+                variant="primary"
                 size="sm"
                 onClick={() => {
                   if (currentLeague?.status === 'draft') {
-                    // Add draft start logic
                     console.log('Starting draft...');
                   } else {
-                    // Set active tab to settings
                     setActiveTab('settings');
                   }
                 }}
@@ -149,10 +163,9 @@ const LeagueDetail = () => {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div className="flex border-b border-gray-200 dark:border-gray-700">
-          {['overview', 'members', 'settings', 'chat'].map((tab) => (
+          {(['overview', 'members', 'settings', 'chat'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -168,9 +181,7 @@ const LeagueDetail = () => {
           ))}
         </div>
 
-        {/* Tab Content */}
         <div className="p-6">
-          {/* Overview Tab */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -211,9 +222,10 @@ const LeagueDetail = () => {
                     size="sm"
                     onClick={() => {
                       if (currentLeague?.inviteCode) {
-                        navigator.clipboard.writeText(currentLeague.inviteCode)
+                        navigator.clipboard
+                          .writeText(currentLeague.inviteCode)
                           .then(() => alert('Invite code copied!'))
-                          .catch(err => console.error('Failed to copy:', err));
+                          .catch((err) => console.error('Failed to copy:', err));
                       }
                     }}
                   >
@@ -241,7 +253,7 @@ const LeagueDetail = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                      {leaderboard && leaderboard.length > 0 ? (
+                      {leaderboard.length > 0 ? (
                         leaderboard.map((entry, index) => (
                           <tr key={entry.user._id || index} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                             <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
@@ -261,7 +273,7 @@ const LeagueDetail = () => {
                       ) : (
                         <tr>
                           <td
-                            colSpan="4"
+                            colSpan={4}
                             className="px-4 py-6 text-center text-gray-500 dark:text-gray-400"
                           >
                             No leaderboard data available
@@ -275,7 +287,6 @@ const LeagueDetail = () => {
             </div>
           )}
 
-          {/* Members Tab */}
           {activeTab === 'members' && (
             <div className="space-y-6">
               {currentLeague?.members && currentLeague.members.length > 0 ? (
@@ -311,29 +322,18 @@ const LeagueDetail = () => {
             </div>
           )}
 
-          {/* Settings Tab */}
           {activeTab === 'settings' && (
             <div className="space-y-6">
               <Card title="League Settings">
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
                   Only league owners and admins can modify league settings.
                 </p>
-                <form onSubmit={(e) => {
-                  e.preventDefault();
-                  // Implement form submission logic here
-                  console.log('Settings form submitted');
-                  
-                  // Example implementation (you'd need to add state for these fields)
-                  // const payload = {
-                  //   name: leagueName,
-                  //   maxMembers: parseInt(maxMembers),
-                  //   maxRosterSize: parseInt(maxRosterSize),
-                  // };
-                  // 
-                  // api.put(`/leagues/${currentLeague?._id}`, payload)
-                  //   .then(() => setSuccess("League updated successfully"))
-                  //   .catch(err => setLocalError(err.message || "Failed to update league"));
-                }}>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    console.log('Settings form submitted');
+                  }}
+                >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -380,12 +380,7 @@ const LeagueDetail = () => {
                       />
                     </div>
                   </div>
-                  <Button 
-                    type="submit"
-                    variant="primary" 
-                    className="mt-6" 
-                    disabled={!isLeagueAdmin}
-                  >
+                  <Button type="submit" variant="primary" className="mt-6" disabled={!isLeagueAdmin}>
                     Update Settings
                   </Button>
                 </form>
@@ -394,14 +389,12 @@ const LeagueDetail = () => {
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
                   These actions cannot be undone. Please be certain.
                 </p>
-                <Button 
-                  variant="danger" 
+                <Button
+                  variant="danger"
                   type="button"
                   onClick={() => {
-                    // Implement leave league with confirmation
-                    if (window.confirm("Are you sure you want to leave this league?")) {
-                      // API call would go here
-                      console.log("User confirmed leaving league");
+                    if (window.confirm('Are you sure you want to leave this league?')) {
+                      console.log('User confirmed leaving league');
                     }
                   }}
                 >
@@ -411,7 +404,6 @@ const LeagueDetail = () => {
             </div>
           )}
 
-          {/* Chat Tab */}
           {activeTab === 'chat' && (
             <div className="space-y-6">
               {chatError && (
@@ -420,7 +412,7 @@ const LeagueDetail = () => {
                 </div>
               )}
               <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 h-96 overflow-y-auto flex flex-col space-y-4">
-                {messages && messages.length > 0 ? (
+                {messages.length > 0 ? (
                   messages.map((message) => (
                     <div key={message._id || Math.random().toString()} className="flex flex-col">
                       <div className="flex items-center space-x-2">
@@ -439,7 +431,7 @@ const LeagueDetail = () => {
                     No messages yet. Start the conversation!
                   </div>
                 )}
-                {typingUsers && typingUsers.length > 0 && (
+                {typingUsers.length > 0 && (
                   <div className="text-gray-500 dark:text-gray-400 text-sm">
                     {typingUsers.length === 1
                       ? `${typingUsers[0].username || 'Someone'} is typing...`
@@ -455,11 +447,7 @@ const LeagueDetail = () => {
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                 />
-                <Button
-                  type="submit"
-                  variant="primary"
-                  disabled={!chatInput.trim()}
-                >
+                <Button type="submit" variant="primary" disabled={!chatInput.trim()}>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-5 w-5"

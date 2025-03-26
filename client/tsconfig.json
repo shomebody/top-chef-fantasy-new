@@ -13,7 +13,7 @@
     "allowImportingTsExtensions": false, // Enforces .ts/.tsx, good for consistency
     "resolveJsonModule": true,
     "isolatedModules": true, // Required for Vite’s fast HMR
-    "types": ["react", "react-dom", "node"], // Add "vite/client" for Vite types
+    "types": ["react", "react-dom", "vite/client", "node", "firebase"], // Add "vite/client" for Vite types
     "noEmit": true, // Vite handles emitting
     "jsx": "react-jsx",
     "jsxImportSource": "react",
