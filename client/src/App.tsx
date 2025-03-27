@@ -19,13 +19,8 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 const MainLayout = lazy(() => import('./layouts/MainLayout'));
 const AuthLayout = lazy(() => import('./layouts/AuthLayout'));
 
-// Fallback component for route-level errors
-interface RouteErrorProps {
-  error: Error;
-  resetError: () => void;
-}
-
-const RouteErrorFallback: React.FC<RouteErrorProps> = ({ error, resetError }) => (
+// Fallback component for route-level errors - change to a function instead of component
+const routeErrorFallback = (error: Error, resetError: () => void) => (
   <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full">
       <h2 className="text-xl font-bold text-red-600 dark:text-red-400 mb-4">
@@ -97,51 +92,47 @@ const App: React.FC = () => {
             <Route element={<AuthLayout />}>
               <Route path="/login" element={
                 isAuthenticated ? <Navigate to="/" /> : 
-                <ErrorBoundary fallback={RouteErrorFallback}>
+                <ErrorBoundary fallback={routeErrorFallback}>
                   <Login />
                 </ErrorBoundary>
               } />
               <Route path="/register" element={
                 isAuthenticated ? <Navigate to="/" /> : 
-                <ErrorBoundary fallback={RouteErrorFallback}>
+                <ErrorBoundary fallback={routeErrorFallback}>
                   <Register />
                 </ErrorBoundary>
               } />
             </Route>
             
             {/* Protected routes with MainLayout */}
-            <Route element={
-              <ProtectedRoute>
-                <MainLayout />
-              </ProtectedRoute>
-            }>
+            <Route element={<ProtectedRoute />}>
               <Route path="/" element={
-                <ErrorBoundary fallback={RouteErrorFallback}>
+                <ErrorBoundary fallback={routeErrorFallback}>
                   <Dashboard />
                 </ErrorBoundary>
               } />
               <Route path="/leagues" element={
-                <ErrorBoundary fallback={RouteErrorFallback}>
+                <ErrorBoundary fallback={routeErrorFallback}>
                   <Leagues />
                 </ErrorBoundary>
               } />
               <Route path="/leagues/:id" element={
-                <ErrorBoundary fallback={RouteErrorFallback}>
+                <ErrorBoundary fallback={routeErrorFallback}>
                   <LeagueDetail />
                 </ErrorBoundary>
               } />
               <Route path="/chefs" element={
-                <ErrorBoundary fallback={RouteErrorFallback}>
+                <ErrorBoundary fallback={routeErrorFallback}>
                   <ChefRoster />
                 </ErrorBoundary>
               } />
               <Route path="/schedule" element={
-                <ErrorBoundary fallback={RouteErrorFallback}>
+                <ErrorBoundary fallback={routeErrorFallback}>
                   <Schedule />
                 </ErrorBoundary>
               } />
               <Route path="/settings" element={
-                <ErrorBoundary fallback={RouteErrorFallback}>
+                <ErrorBoundary fallback={routeErrorFallback}>
                   <Settings />
                 </ErrorBoundary>
               } />
