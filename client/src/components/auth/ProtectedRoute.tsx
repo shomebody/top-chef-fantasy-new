@@ -1,17 +1,26 @@
-import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth.jsx';
-import LoadingScreen from '../ui/LoadingScreen.jsx';
+// client/src/components/auth/ProtectedRoute.tsx
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 
-const ProtectedRoute = () => {
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+}
+
+const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { isAuthenticated, loading } = useAuth();
 
+  console.log('ProtectedRoute:', { isAuthenticated, loading });
+
   if (loading) {
-    return <LoadingScreen />;
+    return <div className="flex justify-center items-center h-screen">Loading...</div>;
   }
 
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" />;
+  if (!isAuthenticated) {
+    console.log('Redirecting to login');
+    return <Navigate to="/login" />;
+  }
+
+  return children;
 };
 
 export default ProtectedRoute;
-
