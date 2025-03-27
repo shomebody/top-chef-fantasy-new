@@ -1,15 +1,19 @@
-//client\src\components\navigation\Sidebar.tsx
-
+import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import Logo from '../ui/Logo';
 import ThemeToggle from '../ui/ThemeToggle';
 
-const Sidebar = ({ collapsed, onToggle }) => {
+interface SidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const { logout } = useAuth();
 
   // Define dynamic TailwindCSS classes for NavLink based on active state
-  const getNavClasses = ({ isActive }) =>
+  const getNavClasses = ({ isActive }: { isActive: boolean }) =>
     `flex items-center px-4 py-3 rounded-lg transition-colors ${
       isActive
         ? 'bg-blue-500 text-white'
@@ -156,9 +160,10 @@ const Sidebar = ({ collapsed, onToggle }) => {
                 >
                   <path
                     fillRule="evenodd"
-                    d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V4a1 1 0 00-1-1H3zm11 10h-3a1 1 0 110-2h3a1 1 0 110 2zm-7-4a2 2 0 100-4 2 2 0 000 4zm5 4a1 1 0 01-1 1H5a1 1 0 01-1-1v-2a5 5 0 0110 0v2z"
+                    d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V4a1 1 0 00-1-1H3zm7 12a1 1 0 11-2 0v-4a1 1 0 012 0v4z"
                     clipRule="evenodd"
                   />
+                  <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1.414-8.414a1 1 0 011.414 0l2.414 2.414a1 1 0 01-1.414 1.414L11 13.414V17a1 1 0 11-2 0v-3.586l-.293.293a1 1 0 01-1.414-1.414l2.414-2.414z" />
                 </svg>
                 {!collapsed && <span className="ml-3">Logout</span>}
               </button>

@@ -1,19 +1,25 @@
-
 import { formatDistanceToNow } from 'date-fns';
+import React from 'react';
 
-/**
- * @typedef {Object} Message
- * @property {string} type - The type of the message (e.g., 'system').
- * @property {string} content - The content of the message.
- * @property {string} [createdAt] - The timestamp of when the message was created.
- * @property {Object} [sender] - The sender of the message.
- * @property {string} [sender.name] - The name of the sender.
- */
+interface MessageSender {
+  _id: string;
+  name: string;
+}
 
-/**
- * @param {{ message: Message, isOwnMessage: boolean }} props
- */
-const ChatMessage = ({ message, isOwnMessage }) => {
+interface Message {
+  _id?: string;
+  type?: string;
+  content: string;
+  createdAt?: string;
+  sender?: MessageSender;
+}
+
+interface ChatMessageProps {
+  message: Message;
+  isOwnMessage: boolean;
+}
+
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, isOwnMessage }) => {
   // Format the timestamp
   const formattedTime = message.createdAt
     ? formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })

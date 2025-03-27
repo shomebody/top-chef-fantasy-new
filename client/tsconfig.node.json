@@ -5,8 +5,8 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
-    "target": "ES2020", // Consistent, but could bump to ESNext
+    "target": "ESNext", // Consistent, but could bump to ESNext
     "types": ["node", "vite/client"] // Already good
   },
- "include": ["vite.config.js"]
+ "include": ["vite.config.ts"]
 }

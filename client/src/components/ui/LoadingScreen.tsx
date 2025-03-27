@@ -1,7 +1,7 @@
 import React from 'react';
-import Logo from './Logo.jsx';
+import Logo from './Logo';
 
-const LoadingScreen = () => {
+const LoadingScreen: React.FC = () => {
   return (
     <div className="fixed inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <div className="text-center">
@@ -19,4 +19,3 @@ const LoadingScreen = () => {
 };
 
 export default LoadingScreen;
-

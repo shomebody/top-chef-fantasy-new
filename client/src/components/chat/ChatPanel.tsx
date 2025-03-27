@@ -1,51 +1,45 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useChat } from '../../hooks/useChat';
 import { useLeague } from '../../hooks/useLeague';
 import ChatMessage from './ChatMessage';
 
-// JSDoc type definitions for TypeScript checking
-/**
- * @typedef {Object} User
- * @property {string} _id
- */
+interface ChatMessage {
+  _id: string;
+  sender?: {
+    _id: string;
+    name: string;
+  };
+  content: string;
+  createdAt?: string;
+  type?: string;
+}
 
-/**
- * @typedef {Object} League
- * @property {string} _id
- */
+interface TypingUser {
+  userId: string;
+  username: string;
+}
 
-/**
- * @typedef {Object} ChatMessage
- * @property {string} _id
- * @property {Object} [sender]
- * @property {string} sender._id
- * @property {string} sender.name
- * @property {string} content
- * @property {string} [createdAt]
- */
+interface ChatPanelProps {
+  onClose: () => void;
+}
 
-/**
- * Chat Panel Component
- * @param {Object} props
- * @param {Function} props.onClose - Function to close the chat panel
- */
-const ChatPanel = ({ onClose }) => {
+const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
   const [message, setMessage] = useState('');
-  const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   
   // Get league and user data
   const { currentLeague } = useLeague();
   const { user } = useAuth();
 
-  // Use chat hook (destructuring directly avoids the void type check issue)
+  // Use chat hook
   const { 
     messages = [], 
     loading = false, 
     error = null, 
     typingUsers = [], 
-    sendMessage = () => {}, 
+    sendMessage = async () => {}, 
     sendTypingIndicator = () => {} 
   } = useChat(currentLeague?._id);
 
@@ -64,23 +58,17 @@ const ChatPanel = ({ onClose }) => {
   }, []);
 
   // Define handlers with proper event types
-  const handleSendMessage = (e) => {
+  const handleSendMessage = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (message.trim() && currentLeague) {
-      // Don't pass any arguments if sendMessage doesn't accept them
       sendMessage(message.trim());
       setMessage('');
     }
   };
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setMessage(e.target.value);
     sendTypingIndicator();
-  };
-
-  // Define a proper React event handler for onClick
-  const handleClose = (e) => {
-    onClose();
   };
 
   return (
@@ -89,7 +77,7 @@ const ChatPanel = ({ onClose }) => {
       <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
         <h3 className="font-semibold text-gray-900 dark:text-white">League Chat</h3>
         <button
-          onClick={handleClose}
+          onClick={onClose}
           className="p-1 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
           aria-label="Close chat"
         >
@@ -142,7 +130,7 @@ const ChatPanel = ({ onClose }) => {
                 No messages yet. Start the conversation!
               </div>
             ) : (
-              messages.map((msg) => (
+              messages.map((msg: ChatMessage) => (
                 <ChatMessage
                   key={msg._id}
                   message={msg}

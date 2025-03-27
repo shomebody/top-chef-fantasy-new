@@ -4,7 +4,12 @@ import { useAuth } from '../../hooks/useAuth.jsx';
 import { useLeague } from '../../hooks/useLeague.jsx';
 import ThemeToggle from '../ui/ThemeToggle.jsx';
 
-const Header = ({ 
+interface HeaderProps {
+  toggleChat?: () => void;
+  isChatOpen?: boolean;
+}
+
+const Header: React.FC<HeaderProps> = ({ 
   toggleChat = () => {}, 
   isChatOpen = false 
 }) => {

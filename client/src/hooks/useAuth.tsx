@@ -1,11 +1,6 @@
-// client/src/hooks/useAuth.tsx
 import { useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext, AuthContextProps } from '../context/AuthContext';
 
-
-/**
- * Represents the user profile with Firebase and application-specific data
- */
 export interface UserProfile {
   _id: string;
   name: string;
@@ -13,24 +8,6 @@ export interface UserProfile {
   isAdmin?: boolean;
   emailVerified?: boolean;
   avatar?: string;
-}
-
-/**
- * Authentication context interface defining all authentication-related functionality
- */
-export interface AuthContextProps {
-  user: UserProfile | null;
-  isAuthenticated: boolean;
-  loading: boolean;
-  error: string | null;
-  login: (email: string, password: string) => Promise<UserProfile | null>;
-  logout: () => Promise<void>;
-  register: (userData: { name: string; email: string; password: string }) => Promise<UserProfile | null>;
-  updateProfile: (userData: { name?: string; email?: string; password?: string; avatar?: string }) => Promise<UserProfile | null>;
-  resetPassword?: (email: string) => Promise<boolean>;
-  sendVerificationEmail?: () => Promise<boolean>;
-  verifyEmail?: (actionCode: string) => Promise<boolean>;
-  setError: (error: string | null) => void;
 }
 
 /**
@@ -67,3 +44,5 @@ export function useAuth(): AuthContextProps {
   
   return safeContext;
 }
+
+export type { AuthContextProps };

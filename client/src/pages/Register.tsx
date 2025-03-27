@@ -1,39 +1,55 @@
-// client/src/pages/Register.jsx
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { authService } from '../services/authService'; // Fixed to use named export
+import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
-import Button from '../components/ui/Button';
+import { useAuth } from '../hooks/useAuth';
+import { authService } from '../services/authService';
 
-const Register = () => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [formError, setFormError] = useState('');
+interface RegisterFormData {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
+
+const Register: React.FC = () => {
+  const [formData, setFormData] = useState<RegisterFormData>({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [formError, setFormError] = useState<string>('');
   
   const { register, loading, error } = useAuth();
   
-  const handleSubmit = async (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [id]: value
+    }));
+  };
+  
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError('');
-    console.log('Form Submitted:', { name, email, password });
+    console.log('Form Submitted:', { name: formData.name, email: formData.email, password: formData.password });
     
-    if (!name || !email || !password || !confirmPassword) {
+    if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
       setFormError('Please fill in all fields');
       console.log('Validation failed: Missing fields');
       return;
     }
     
-    if (password !== confirmPassword) {
+    if (formData.password !== formData.confirmPassword) {
       setFormError('Passwords do not match');
       console.log('Validation failed: Passwords mismatch');
       return;
     }
     
-    if (password.length < 6) {
+    if (formData.password.length < 6) {
       setFormError('Password must be at least 6 characters');
       console.log('Validation failed: Password too short');
       return;
@@ -41,14 +57,22 @@ const Register = () => {
     
     try {
       console.log('Starting registration...');
-      const userProfile = await authService.register({ name, email, password });
+      const userProfile = await authService.register({ 
+        name: formData.name, 
+        email: formData.email, 
+        password: formData.password 
+      });
       console.log('Registered User:', userProfile);
       const tokenResult = await authService.getToken();
       console.log('Firebase ID Token:', tokenResult);
       console.log('Calling useAuth register...');
-      await register({ name, email, password });
+      await register({ 
+        name: formData.name, 
+        email: formData.email, 
+        password: formData.password 
+      });
       console.log('Registration complete');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Registration error:', err.message);
       setFormError(err.message || 'Failed to register');
     }
@@ -73,8 +97,8 @@ const Register = () => {
           type="text"
           id="name"
           placeholder="Enter your name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          value={formData.name}
+          onChange={handleChange}
           required
         />
         <Input
@@ -82,8 +106,8 @@ const Register = () => {
           type="email"
           id="email"
           placeholder="Enter your email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={formData.email}
+          onChange={handleChange}
           required
         />
         <Input
@@ -91,8 +115,8 @@ const Register = () => {
           type="password"
           id="password"
           placeholder="Create a password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          value={formData.password}
+          onChange={handleChange}
           helper="Password must be at least 6 characters"
           required
         />
@@ -101,8 +125,8 @@ const Register = () => {
           type="password"
           id="confirmPassword"
           placeholder="Confirm your password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
+          value={formData.confirmPassword}
+          onChange={handleChange}
           required
         />
         <div className="mb-6">

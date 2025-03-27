@@ -1,12 +1,58 @@
-// client/src/services/messageService.js
-
-import { collection, query, where, orderBy, limit, getDocs, addDoc, updateDoc, increment, doc, getDoc, arrayUnion, arrayRemove, serverTimestamp, startAfter, Timestamp } from 'firebase/firestore';
+import {
+  addDoc,
+  arrayRemove,
+  arrayUnion,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  updateDoc,
+  where
+} from 'firebase/firestore';
 import { db } from '../config/firebase';
 import api from './api';
 
+interface ChatMessage {
+  _id: string;
+  league: string;
+  sender: string;
+  content: string;
+  type: string;
+  reactions: {
+    likes: string[];
+    hearts: string[];
+  };
+  readBy: string[];
+  createdAt: string | Date;
+}
+
+interface MessageSender {
+  _id: string;
+  name: string;
+  email?: string;
+  avatar?: string;
+}
+
+interface MessageResponse {
+  _id: string;
+  league: string;
+  sender: MessageSender;
+  content: string;
+  type: string;
+  reactions: {
+    likes: string[];
+    hearts: string[];
+  };
+  readBy: string[];
+  createdAt: string | Date;
+}
+
 const MessageService = {
   // Get messages for a league - Firestore implementation
-  getLeagueMessages: async (leagueId, limitCount = 50, before = null) => {
+  getLeagueMessages: async (leagueId: string, limitCount = 50, before?: string | null): Promise<MessageResponse[]> => {
     try {
       let messagesQuery;
       
@@ -31,12 +77,12 @@ const MessageService = {
       
       const messagesSnapshot = await getDocs(messagesQuery);
       
-      const messages = [];
+      const messages: ChatMessage[] = [];
       messagesSnapshot.forEach(doc => {
         messages.push({
           _id: doc.id,
           ...doc.data()
-        });
+        } as ChatMessage);
       });
       
       // Populate sender information
@@ -50,7 +96,7 @@ const MessageService = {
             name: senderDoc.data().name,
             email: senderDoc.data().email,
             avatar: senderDoc.data().avatar || ''
-          } : { _id: message.sender }
+          } : { _id: message.sender, name: 'Unknown' }
         };
       }));
       
@@ -73,7 +119,7 @@ const MessageService = {
       
       // Fallback to API
       try {
-        let params = { limit: limitCount };
+        const params: Record<string, any> = { limit: limitCount };
         if (before) {
           params.before = before;
         }
@@ -88,7 +134,7 @@ const MessageService = {
   },
   
   // Send a message - Firestore implementation
-  sendMessage: async (leagueId, content, type = 'text') => {
+  sendMessage: async (leagueId: string, content: string, type = 'text'): Promise<MessageResponse> => {
     try {
       const currentUserId = localStorage.getItem('userId');
       
@@ -97,7 +143,7 @@ const MessageService = {
       }
       
       // Create message document
-      const message = {
+      const message: Omit<ChatMessage, '_id'> = {
         league: leagueId,
         sender: currentUserId,
         content,
@@ -115,7 +161,7 @@ const MessageService = {
       // Get sender information
       const senderDoc = await getDoc(doc(db, 'users', currentUserId));
       
-      const completeMessage = {
+      const completeMessage: MessageResponse = {
         _id: messageRef.id,
         ...message,
         sender: senderDoc.exists() ? {
@@ -123,7 +169,7 @@ const MessageService = {
           name: senderDoc.data().name,
           email: senderDoc.data().email,
           avatar: senderDoc.data().avatar || ''
-        } : { _id: currentUserId }
+        } : { _id: currentUserId, name: 'Unknown' }
       };
       
       return completeMessage;
@@ -142,7 +188,7 @@ const MessageService = {
   },
   
   // Add reaction to a message - Firestore implementation
-  addReaction: async (messageId, reaction) => {
+  addReaction: async (messageId: string, reaction: 'likes' | 'hearts'): Promise<{ message: string; reactions: { likes: string[]; hearts: string[] } }> => {
     try {
       if (!['likes', 'hearts'].includes(reaction)) {
         throw new Error('Invalid reaction type');
@@ -161,7 +207,7 @@ const MessageService = {
         throw new Error('Message not found');
       }
       
-      const message = messageDoc.data();
+      const message = messageDoc.data() as ChatMessage;
       
       // Check if user has already reacted
       const hasReacted = message.reactions[reaction].includes(currentUserId);
@@ -183,7 +229,7 @@ const MessageService = {
       
       return { 
         message: 'Reaction updated', 
-        reactions: updatedDoc.data().reactions 
+        reactions: (updatedDoc.data() as ChatMessage).reactions 
       };
     } catch (error) {
       console.error('Error updating reaction in Firestore:', error);
@@ -200,7 +246,7 @@ const MessageService = {
   },
   
   // Get unread message count - Firestore implementation
-  getUnreadCount: async (leagueId) => {
+  getUnreadCount: async (leagueId: string): Promise<{ unreadCount: number }> => {
     try {
       const currentUserId = localStorage.getItem('userId');
       
@@ -221,7 +267,7 @@ const MessageService = {
       let unreadCount = 0;
       
       totalSnapshot.forEach(doc => {
-        const message = doc.data();
+        const message = doc.data() as ChatMessage;
         if (!message.readBy.includes(currentUserId)) {
           unreadCount++;
         }

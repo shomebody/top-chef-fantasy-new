@@ -1,24 +1,63 @@
-import { 
-  collection, 
-  doc, 
-  getDocs, 
-  getDoc, 
-  addDoc, 
-  updateDoc, 
-  query, 
-  where,
+import {
+  addDoc,
   arrayUnion,
-  serverTimestamp
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
+
+interface League {
+  _id: string;
+  name: string;
+  creator: string;
+  season: number;
+  maxMembers: number;
+  maxRosterSize: number;
+  status: 'draft' | 'active' | 'completed';
+  inviteCode: string;
+  scoringSettings: {
+    quickfireWin: number;
+    challengeWin: number;
+    topThree: number;
+    bottomThree: number;
+    elimination: number;
+    finalWinner: number;
+  };
+  currentWeek: number;
+  members: Record<string, {
+    role: 'owner' | 'admin' | 'member';
+    score: number;
+    joinedAt: any;
+  }>;
+  createdAt: any;
+}
+
+interface CreateLeagueData {
+  name: string;
+  season: number;
+  maxMembers?: number;
+  maxRosterSize?: number;
+  scoringSettings?: {
+    quickfireWin: number;
+    challengeWin: number;
+    topThree: number;
+    bottomThree: number;
+    elimination: number;
+    finalWinner: number;
+  };
+}
 
 // League service functions
 const LeagueService = {
   // Get all leagues for current user
-  getUserLeagues: async (userId) => {
+  getUserLeagues: async (userId: string): Promise<League[]> => {
     try {
-      const leaguesRef = collection(db, 'leagues');
-      
       // Query leagues where the user is a member
       const leaguesQuery = query(
         collection(db, 'leagues'),
@@ -31,7 +70,7 @@ const LeagueService = {
       const leagues = leaguesSnapshot.docs.map(doc => ({
         _id: doc.id,
         ...doc.data()
-      }));
+      })) as League[];
       
       return leagues;
     } catch (error) {
@@ -41,7 +80,7 @@ const LeagueService = {
   },
   
   // Get a single league by ID
-  getLeagueById: async (id) => {
+  getLeagueById: async (id: string): Promise<League> => {
     try {
       const leagueDoc = await getDoc(doc(db, 'leagues', id));
       
@@ -52,7 +91,7 @@ const LeagueService = {
       return {
         _id: leagueDoc.id,
         ...leagueDoc.data()
-      };
+      } as League;
     } catch (error) {
       console.error('Error fetching league:', error);
       throw error;
@@ -60,7 +99,7 @@ const LeagueService = {
   },
   
   // Create a new league
-  createLeague: async (leagueData, userId) => {
+  createLeague: async (leagueData: CreateLeagueData, userId: string): Promise<League> => {
     try {
       // Generate invite code
       const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -108,7 +147,7 @@ const LeagueService = {
       return {
         _id: newLeagueDoc.id,
         ...newLeagueDoc.data()
-      };
+      } as League;
     } catch (error) {
       console.error('Error creating league:', error);
       throw error;
@@ -116,7 +155,7 @@ const LeagueService = {
   },
   
   // Join a league with invite code
-  joinLeagueWithCode: async (inviteCode, userId) => {
+  joinLeagueWithCode: async (inviteCode: string, userId: string): Promise<League> => {
     try {
       // Find league with invite code
       const leaguesQuery = query(
@@ -131,7 +170,7 @@ const LeagueService = {
       }
       
       const leagueDoc = leaguesSnapshot.docs[0];
-      const league = leagueDoc.data();
+      const league = leagueDoc.data() as League & { members: Record<string, any> };
       
       // Check if league is full
       const memberCount = Object.keys(league.members || {}).length;
@@ -166,7 +205,7 @@ const LeagueService = {
       return {
         _id: updatedLeagueDoc.id,
         ...updatedLeagueDoc.data()
-      };
+      } as League;
     } catch (error) {
       console.error('Error joining league:', error);
       throw error;

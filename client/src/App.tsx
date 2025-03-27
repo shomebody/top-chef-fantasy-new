@@ -1,5 +1,4 @@
-// src/App.tsx
-import { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -21,7 +20,12 @@ const MainLayout = lazy(() => import('./layouts/MainLayout'));
 const AuthLayout = lazy(() => import('./layouts/AuthLayout'));
 
 // Fallback component for route-level errors
-const RouteErrorFallback = ({ error, resetError }: { error: Error, resetError: () => void }) => (
+interface RouteErrorProps {
+  error: Error;
+  resetError: () => void;
+}
+
+const RouteErrorFallback: React.FC<RouteErrorProps> = ({ error, resetError }) => (
   <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full">
       <h2 className="text-xl font-bold text-red-600 dark:text-red-400 mb-4">
@@ -40,7 +44,7 @@ const RouteErrorFallback = ({ error, resetError }: { error: Error, resetError: (
   </div>
 );
 
-function App() {
+const App: React.FC = () => {
   const { isAuthenticated, loading, error } = useAuth();
   
   useEffect(() => {
@@ -62,7 +66,7 @@ function App() {
   // Global error boundary for the entire app
   return (
     <ErrorBoundary
-      fallback={(error, resetError) => (
+      fallback={(error: Error, resetError: () => void) => (
         <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full">
             <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">
@@ -150,6 +154,6 @@ function App() {
       )}
     </ErrorBoundary>
   );
-}
+};
 
 export default App;

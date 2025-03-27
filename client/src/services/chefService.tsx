@@ -1,10 +1,34 @@
-import { collection, doc, getDocs, getDoc, query, where, orderBy } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore';
+import { db } from '../config/firebase.js';
 import api from './api.js';
+
+interface ChefData {
+  _id: string;
+  name: string;
+  bio: string;
+  hometown: string;
+  specialty: string;
+  image: string;
+  status: 'active' | 'eliminated' | 'winner';
+  eliminationWeek: number | null;
+  stats: {
+    wins: number;
+    eliminations: number;
+    quickfireWins: number;
+    challengeWins: number;
+    totalPoints: number;
+  };
+  weeklyPerformance: Array<{
+    week: number;
+    points: number;
+    rank: number;
+    highlights: string;
+  }>;
+}
 
 const ChefService = {
   // Get all chefs - Firestore implementation
-  getAllChefs: async () => {
+  getAllChefs: async (): Promise<ChefData[]> => {
     try {
       const chefsQuery = query(
         collection(db, 'chefs'),
@@ -16,7 +40,7 @@ const ChefService = {
       const chefs = chefsSnapshot.docs.map(doc => ({
         _id: doc.id,
         ...doc.data()
-      }));
+      })) as ChefData[];
       
       return chefs;
     } catch (error) {
@@ -29,7 +53,7 @@ const ChefService = {
   },
   
   // Get a chef by ID
-  getChefById: async (id) => {
+  getChefById: async (id: string): Promise<ChefData> => {
     try {
       const chefDoc = await getDoc(doc(db, 'chefs', id));
       
@@ -40,7 +64,7 @@ const ChefService = {
       return {
         _id: chefDoc.id,
         ...chefDoc.data()
-      };
+      } as ChefData;
     } catch (error) {
       console.error('Error fetching chef from Firestore:', error);
       
@@ -51,7 +75,7 @@ const ChefService = {
   },
   
   // Get chef stats
-  getChefStats: async (id) => {
+  getChefStats: async (id: string): Promise<any> => {
     try {
       const chefDoc = await getDoc(doc(db, 'chefs', id));
       
@@ -71,7 +95,7 @@ const ChefService = {
   },
   
   // Get weekly performance
-  getChefWeeklyPerformance: async (id) => {
+  getChefWeeklyPerformance: async (id: string): Promise<any[]> => {
     try {
       const chefDoc = await getDoc(doc(db, 'chefs', id));
       

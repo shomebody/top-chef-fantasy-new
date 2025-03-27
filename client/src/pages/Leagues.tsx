@@ -1,29 +1,40 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useLeague } from '../hooks/useLeague.jsx';
-import Card from '../components/ui/Card.jsx';
-import Button from '../components/ui/Button.jsx';
-import Input from '../components/ui/Input.jsx';
+import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
+import Input from '../components/ui/Input';
+import { useLeague } from '../hooks/useLeague';
 
-const Leagues = () => {
-  const { leagues, loading, error, fetchUserLeagues, createLeague, joinLeagueWithCode } = useLeague();
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
-  const [joinCode, setJoinCode] = useState('');
-  const [newLeague, setNewLeague] = useState({
+interface NewLeague {
+  name: string;
+  season: number;
+  maxMembers: number;
+  maxRosterSize: number;
+}
+
+interface FormErrors {
+  [key: string]: string;
+}
+
+const Leagues: React.FC = () => {
+  const { leagues = [], loading = false, error = null, fetchUserLeagues, createLeague, joinLeagueWithCode } = useLeague();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState<boolean>(false);
+  const [joinCode, setJoinCode] = useState<string>('');
+  const [newLeague, setNewLeague] = useState<NewLeague>({
     name: '',
     season: 22,
     maxMembers: 10,
     maxRosterSize: 5
   });
-  const [formError, setFormError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
     fetchUserLeagues();
   }, [fetchUserLeagues]);
 
-  const handleCreateSubmit = async (e) => {
+  const handleCreateSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError('');
     
@@ -42,7 +53,7 @@ const Leagues = () => {
         maxMembers: 10,
         maxRosterSize: 5
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error creating league:', err);
       setFormError(err.response?.data?.message || 'Failed to create league');
     } finally {
@@ -50,7 +61,7 @@ const Leagues = () => {
     }
   };
   
-  const handleJoinSubmit = async (e) => {
+  const handleJoinSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError('');
     
@@ -64,11 +75,27 @@ const Leagues = () => {
       await joinLeagueWithCode(joinCode);
       setIsJoinModalOpen(false);
       setJoinCode('');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error joining league:', err);
       setFormError(err.response?.data?.message || 'Failed to join league');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    
+    if (name === 'season' || name === 'maxMembers' || name === 'maxRosterSize') {
+      setNewLeague({
+        ...newLeague,
+        [name]: parseInt(value) || 0
+      });
+    } else {
+      setNewLeague({
+        ...newLeague,
+        [name]: value
+      });
     }
   };
 
@@ -209,43 +236,47 @@ const Leagues = () => {
                 <Input
                   label="League Name"
                   id="name"
+                  name="name"
                   placeholder="Enter league name"
                   value={newLeague.name}
-                  onChange={(e) => setNewLeague({...newLeague, name: e.target.value})}
+                  onChange={handleInputChange}
                   required
                 />
                 <div className="grid grid-cols-2 gap-4">
                   <Input
                     label="Season"
                     id="season"
+                    name="season"
                     type="number"
                     min="1"
                     placeholder="Season number"
-                    value={newLeague.season}
-                    onChange={(e) => setNewLeague({...newLeague, season: parseInt(e.target.value)})}
+                    value={newLeague.season.toString()}
+                    onChange={handleInputChange}
                     required
                   />
                   <Input
                     label="Max Members"
                     id="maxMembers"
+                    name="maxMembers"
                     type="number"
                     min="2"
                     max="20"
                     placeholder="Maximum members"
-                    value={newLeague.maxMembers}
-                    onChange={(e) => setNewLeague({...newLeague, maxMembers: parseInt(e.target.value)})}
+                    value={newLeague.maxMembers.toString()}
+                    onChange={handleInputChange}
                     required
                   />
                 </div>
                 <Input
                   label="Max Roster Size"
                   id="maxRosterSize"
+                  name="maxRosterSize"
                   type="number"
                   min="1"
                   max="10"
                   placeholder="Chefs per roster"
-                  value={newLeague.maxRosterSize}
-                  onChange={(e) => setNewLeague({...newLeague, maxRosterSize: parseInt(e.target.value)})}
+                  value={newLeague.maxRosterSize.toString()}
+                  onChange={handleInputChange}
                   required
                 />
                 <div className="mt-6 flex justify-end space-x-3">

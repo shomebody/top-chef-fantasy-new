@@ -1,12 +1,11 @@
-import { useEffect, useState, FormEvent } from 'react';
-import { useParams, Navigate } from 'react-router-dom';
-import { useLeague, UseLeagueReturn } from '../hooks/useLeague';
-import { useChat, UseChatReturn } from '../hooks/useChat';
-import { useAuth, UserProfile } from '../hooks/useAuth';
-import Card from '../components/ui/Card';
+import React, { FormEvent, useEffect, useState } from 'react';
+import { Navigate, useParams } from 'react-router-dom';
 import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
+import { useAuth } from '../hooks/useAuth';
+import { useChat } from '../hooks/useChat';
+import { useLeague } from '../hooks/useLeague';
 
-// Enhanced League type from league.d.ts
 interface League {
   _id: string;
   name: string;
@@ -15,17 +14,39 @@ interface League {
   currentWeek: number;
   maxMembers: number;
   maxRosterSize: number;
-  members: { user: { _id: string; name: string }; role: 'owner' | 'admin' | 'member'; score: number }[];
-  inviteCode?: string; // Added
+  members: Array<{
+    user: {
+      _id: string;
+      name: string;
+    };
+    role: 'owner' | 'admin' | 'member';
+    score: number;
+  }>;
+  inviteCode?: string;
   scoringSettings?: {
     challengeWin: number;
     quickfireWin: number;
     topThree: number;
     bottomThree: number;
-  }; // Added
+  };
 }
 
-const LeagueDetail = () => {
+interface ChatMessage {
+  _id: string;
+  content: string;
+  sender?: {
+    _id: string;
+    name: string;
+  };
+  createdAt: string;
+}
+
+interface TypingUser {
+  userId: string;
+  username: string;
+}
+
+const LeagueDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const {
     leagues = [],
@@ -33,16 +54,21 @@ const LeagueDetail = () => {
     leaderboard = [],
     loading = false,
     error = null,
-    fetchLeagueDetails = () => Promise.resolve(undefined),
+    fetchLeagueDetails = () => Promise.resolve(),
     switchLeague = () => {},
-  }: UseLeagueReturn = useLeague();
-  const { user = null }: { user: UserProfile | null } = useAuth();
+  } = useLeague();
+  
+  const { user = null } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'settings' | 'chat'>('overview');
   const [chatInput, setChatInput] = useState<string>('');
   const [chatError, setChatError] = useState<string>('');
   const [localError, setLocalError] = useState<string>('');
 
-  const { messages = [], sendMessage = () => Promise.resolve(), typingUsers = [] }: UseChatReturn = useChat(id);
+  const { 
+    messages = [], 
+    sendMessage = () => Promise.resolve(), 
+    typingUsers = []
+  } = useChat(id);
 
   useEffect(() => {
     if (id) {
@@ -413,7 +439,7 @@ const LeagueDetail = () => {
               )}
               <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 h-96 overflow-y-auto flex flex-col space-y-4">
                 {messages.length > 0 ? (
-                  messages.map((message) => (
+                  messages.map((message: ChatMessage) => (
                     <div key={message._id || Math.random().toString()} className="flex flex-col">
                       <div className="flex items-center space-x-2">
                         <div className="font-medium text-gray-900 dark:text-white">

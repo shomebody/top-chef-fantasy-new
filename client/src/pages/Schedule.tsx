@@ -1,10 +1,44 @@
 import React, { useEffect, useState } from 'react';
-import { useLeague } from '../hooks/useLeague.jsx';
 import Card from '../components/ui/Card.jsx';
+import { useLeague } from '../hooks/useLeague.jsx';
 
-const Schedule = () => {
+interface Challenge {
+  _id: string;
+  title: string;
+  location: string;
+  isQuickfire: boolean;
+  status: string;
+  week: number;
+  airDate: string | Date;
+  description: string;
+  guest?: string;
+  winner?: {
+    _id: string;
+    name: string;
+  } | null;
+  topChefs?: Array<{
+    _id: string;
+    name: string;
+  }>;
+  bottomChefs?: Array<{
+    _id: string;
+    name: string;
+  }>;
+  eliminatedChef?: {
+    _id: string;
+    name: string;
+  } | null;
+}
+
+interface LeagueData {
+  _id: string;
+  currentWeek: number;
+  [key: string]: any;
+}
+
+const Schedule: React.FC = () => {
   const { challenges, currentLeague, loading, error, fetchLeagueDetails } = useLeague();
-  const [selectedChallenge, setSelectedChallenge] = useState(null);
+  const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null);
   
   useEffect(() => {
     if (currentLeague?._id) {
@@ -12,7 +46,7 @@ const Schedule = () => {
     }
   }, [currentLeague?._id, fetchLeagueDetails]);
   
-  const handleSelectChallenge = (challenge) => {
+  const handleSelectChallenge = (challenge: Challenge) => {
     setSelectedChallenge(challenge);
   };
   
@@ -54,7 +88,7 @@ const Schedule = () => {
         </div>
       ) : challenges && challenges.length > 0 ? (
         <div className="space-y-6">
-          <Card title="Current Week: Week">
+          <Card title={`Current Week: Week ${currentLeague.currentWeek || 'Unknown'}`}>
             <div className="space-y-4">
               {challenges
                 .filter(challenge => challenge.week === currentLeague.currentWeek)

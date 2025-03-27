@@ -1,7 +1,7 @@
 import React from 'react';
-import { useTheme } from '../../hooks/useTheme.jsx';
+import { useTheme } from '../../hooks/useTheme';
 
-const ThemeToggle = () => {
+const ThemeToggle: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   
   return (
@@ -24,4 +24,3 @@ const ThemeToggle = () => {
 };
 
 export default ThemeToggle;
-

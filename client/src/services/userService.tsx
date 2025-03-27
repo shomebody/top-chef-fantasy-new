@@ -1,12 +1,21 @@
-// client/src/services/userService.js
-import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { updateProfile as firebaseUpdateProfile } from 'firebase/auth';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import api from './api.js';
 
+interface UserProfile {
+  _id: string;
+  name: string;
+  email: string;
+  isAdmin?: boolean;
+  createdAt?: Date;
+  avatar?: string;
+  [key: string]: any;
+}
+
 const UserService = {
   // Get user profile - Firestore implementation
-  getUserProfile: async (userId) => {
+  getUserProfile: async (userId: string): Promise<UserProfile> => {
     try {
       const userDoc = await getDoc(doc(db, 'users', userId));
       
@@ -17,7 +26,7 @@ const UserService = {
       return {
         _id: userDoc.id,
         ...userDoc.data()
-      };
+      } as UserProfile;
     } catch (error) {
       console.error('Error fetching user from Firestore:', error);
       
@@ -28,12 +37,12 @@ const UserService = {
   },
   
   // Update user profile - Firestore implementation
-  updateUserProfile: async (userData) => {
+  updateUserProfile: async (userData: Partial<UserProfile>): Promise<UserProfile> => {
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error('No user logged in');
       
-      const updateData = {};
+      const updateData: Record<string, any> = {};
       if (userData.name) updateData.name = userData.name;
       if (userData.email) updateData.email = userData.email.toLowerCase();
       if (userData.avatar) updateData.avatar = userData.avatar;

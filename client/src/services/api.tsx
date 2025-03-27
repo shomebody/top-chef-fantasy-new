@@ -1,7 +1,7 @@
-// src/services/api.ts
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import axiosRetry from 'axios-retry';
 import { getAuth } from 'firebase/auth';
+import React from 'react';
 import { logger, perfMonitor } from '../utils/debugUtils';
 
 // Network error types for better debugging
@@ -130,7 +130,7 @@ const createApiInstance = (config: AxiosRequestConfig = {}): AxiosInstance => {
     },
     (error: AxiosError) => {
       // Get request ID for logging
-      const requestId = error.config?.headers?.['X-Request-ID'];
+      const requestId = error.config?.headers?.['X-Request-ID'] as string | undefined;
       
       // End performance monitoring
       if (requestId) {
@@ -175,6 +175,9 @@ const formatApiError = (error: any): NetworkError => {
     error.message || 'Unknown error occurred'
   ) as NetworkError;
   
+  networkError.type = NetworkErrorType.UNKNOWN;
+  networkError.isRetryable = false;
+  
   if (error.code === 'ECONNABORTED') {
     networkError.type = NetworkErrorType.TIMEOUT;
     networkError.isRetryable = true;
@@ -196,9 +199,6 @@ const formatApiError = (error: any): NetworkError => {
       networkError.type = NetworkErrorType.CLIENT;
       networkError.isRetryable = false;
     }
-  } else {
-    networkError.type = NetworkErrorType.UNKNOWN;
-    networkError.isRetryable = false;
   }
   
   return networkError;
