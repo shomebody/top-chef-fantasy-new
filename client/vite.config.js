@@ -1,10 +1,11 @@
-// client/vite.config.js
+// @ts-check
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import fs from 'fs';
 
-export default defineConfig(({ mode }) => {
+// Type-safe configuration function
+export default defineConfig(/** @type {import('vite').ConfigEnv} */ ({ mode }) => {
   const env = {
     VITE_BACKEND_PORT: process.env.VITE_BACKEND_PORT || '5000',
   };
@@ -17,12 +18,16 @@ export default defineConfig(({ mode }) => {
     backendPort = env.VITE_BACKEND_PORT;
   }
 
-  return {
+  /** @type {import('vite').UserConfig} */
+  const config = {
     plugins: [react()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
       },
+    },
+    css: {
+      postcss: './postcss.config.cjs',
     },
     server: {
       port: 5173,
@@ -60,4 +65,6 @@ export default defineConfig(({ mode }) => {
       },
     },
   };
+
+  return config;
 });
