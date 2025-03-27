@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
-import { useLeague } from '../../hooks/useLeague.jsx';
-import { useChat } from '../../hooks/useChat.jsx';
-import { useAuth } from '../../hooks/useAuth.jsx';
-import ChatMessage from './ChatMessage.jsx';
+import { useEffect, useRef, useState } from 'react';
+import { useAuth } from '../../hooks/useAuth';
+import { useChat } from '../../hooks/useChat';
+import { useLeague } from '../../hooks/useLeague';
+import ChatMessage from './ChatMessage';
 
 // JSDoc type definitions for TypeScript checking
 /**

@@ -1,8 +1,9 @@
-import React from 'react';
+//client\src\components\navigation\Sidebar.tsx
+
 import { NavLink } from 'react-router-dom';
-import Logo from '../ui/Logo.jsx';
-import ThemeToggle from '../ui/ThemeToggle.jsx';
-import { useAuth } from '../../hooks/useAuth.jsx';
+import { useAuth } from '../../hooks/useAuth';
+import Logo from '../ui/Logo';
+import ThemeToggle from '../ui/ThemeToggle';
 
 const Sidebar = ({ collapsed, onToggle }) => {
   const { logout } = useAuth();
