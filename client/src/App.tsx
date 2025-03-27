@@ -1,105 +1,155 @@
-// client/src/App.tsx
-import { useEffect, useState } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import LoadingScreen from './components/ui/LoadingScreen';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import Leagues from './pages/Leagues';
-import LeagueDetail from './pages/LeagueDetail';
-import ChefRoster from './pages/ChefRoster';
-import Schedule from './pages/Schedule';
-import Settings from './pages/Settings';
-import NotFound from './pages/NotFound';
-import MainLayout from './layouts/MainLayout';
-import AuthLayout from './layouts/AuthLayout';
+// src/App.tsx
+import { Suspense, lazy, useEffect } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import ErrorBoundary from './components/common/ErrorBoundary';
+import LoadingScreen from './components/ui/LoadingScreen';
 import { useAuth } from './hooks/useAuth';
-import { getAuth } from 'firebase/auth';
+import { logger } from './utils/debugUtils';
 
-const ErrorBoundary = ({ children }: { children: React.ReactNode }) => {
-  const [hasError, setHasError] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+// Lazy-load components to improve initial load time
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Leagues = lazy(() => import('./pages/Leagues'));
+const LeagueDetail = lazy(() => import('./pages/LeagueDetail'));
+const ChefRoster = lazy(() => import('./pages/ChefRoster'));
+const Schedule = lazy(() => import('./pages/Schedule'));
+const Settings = lazy(() => import('./pages/Settings'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+const MainLayout = lazy(() => import('./layouts/MainLayout'));
+const AuthLayout = lazy(() => import('./layouts/AuthLayout'));
 
+// Fallback component for route-level errors
+const RouteErrorFallback = ({ error, resetError }: { error: Error, resetError: () => void }) => (
+  <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full">
+      <h2 className="text-xl font-bold text-red-600 dark:text-red-400 mb-4">
+        Something went wrong
+      </h2>
+      <p className="text-gray-700 dark:text-gray-300 mb-4">
+        {error.message || 'An unexpected error occurred'}
+      </p>
+      <button
+        onClick={resetError}
+        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+      >
+        Try again
+      </button>
+    </div>
+  </div>
+);
+
+function App() {
+  const { isAuthenticated, loading, error } = useAuth();
+  
   useEffect(() => {
-    const errorHandler = (event: ErrorEvent) => {
-      console.error('Uncaught error caught by ErrorBoundary:', event.error);
-      setHasError(true);
-      setError(event.error?.message || 'An unexpected error occurred');
-    };
-    const unhandledRejectionHandler = (event: PromiseRejectionEvent) => {
-      console.error('Unhandled promise rejection:', event.reason);
-      setHasError(true);
-      setError(event.reason?.message || 'Unhandled promise rejection');
-    };
-    window.addEventListener('error', errorHandler);
-    window.addEventListener('unhandledrejection', unhandledRejectionHandler);
-    return () => {
-      window.removeEventListener('error', errorHandler);
-      window.removeEventListener('unhandledrejection', unhandledRejectionHandler);
-    };
-  }, []);
-
-  if (hasError) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen p-4">
-        <h1 className="text-2xl font-bold text-red-600">Something went wrong</h1>
-        <p className="mt-2 text-gray-600">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-        >
-          Reload Page
-        </button>
-      </div>
-    );
-  }
-  return <>{children}</>;
-};
-
-const App = (): React.JSX.Element => {
-  const { isAuthenticated, loading } = useAuth();
-
-  console.log('App render:', { isAuthenticated, loading });
-
-  useEffect(() => {
-    console.log('App effect running');
-    const auth = getAuth();
-    const unsubscribe = auth.onIdTokenChanged(async (user) => {
-      console.log('Auth state changed:', user ? 'User authenticated' : 'No authenticated user');
+    logger.info('App initialized', { 
+      prefix: 'App',
+      data: { 
+        isAuthenticated, 
+        environment: import.meta.env.MODE,
+        version: import.meta.env.VITE_APP_VERSION || '0.1.0'
+      }
     });
-    return () => unsubscribe();
-  }, []);
+    
+    // Log any auth errors
+    if (error) {
+      logger.error('Authentication error', { prefix: 'App', data: error });
+    }
+  }, [isAuthenticated, error]);
 
-  if (loading) {
-    console.log('Rendering LoadingScreen');
-    return <LoadingScreen />;
-  }
-
-  console.log('Rendering Routes, isAuthenticated:', isAuthenticated);
-
+  // Global error boundary for the entire app
   return (
-    <ErrorBoundary>
-      <Routes>
-        <Route element={<AuthLayout />}>
-          <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
-          <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
-        </Route>
-        <Route element={<ProtectedRoute />}>
-          <Route element={<MainLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/leagues" element={<Leagues />} />
-            <Route path="/leagues/:id" element={<LeagueDetail />} />
-            <Route path="/chefs" element={<ChefRoster />} />
-            <Route path="/schedule" element={<Schedule />} />
-            <Route path="/settings" element={<Settings />} />
-          </Route>
-        </Route>
-        <Route index element={<Navigate to={isAuthenticated ? '/' : '/login'} />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+    <ErrorBoundary
+      fallback={(error, resetError) => (
+        <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full">
+            <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">
+              Application Error
+            </h1>
+            <p className="text-gray-700 dark:text-gray-300 mb-4">
+              The application has encountered a critical error and cannot continue.
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+              Error details: {error.message}
+            </p>
+            <button
+              onClick={resetError}
+              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+            >
+              Reload Application
+            </button>
+          </div>
+        </div>
+      )}
+    >
+      {loading ? (
+        <LoadingScreen />
+      ) : (
+        <Suspense fallback={<LoadingScreen />}>
+          <Routes>
+            {/* Auth routes */}
+            <Route element={<AuthLayout />}>
+              <Route path="/login" element={
+                isAuthenticated ? <Navigate to="/" /> : 
+                <ErrorBoundary fallback={RouteErrorFallback}>
+                  <Login />
+                </ErrorBoundary>
+              } />
+              <Route path="/register" element={
+                isAuthenticated ? <Navigate to="/" /> : 
+                <ErrorBoundary fallback={RouteErrorFallback}>
+                  <Register />
+                </ErrorBoundary>
+              } />
+            </Route>
+            
+            {/* Protected routes with MainLayout */}
+            <Route element={
+              <ProtectedRoute>
+                <MainLayout />
+              </ProtectedRoute>
+            }>
+              <Route path="/" element={
+                <ErrorBoundary fallback={RouteErrorFallback}>
+                  <Dashboard />
+                </ErrorBoundary>
+              } />
+              <Route path="/leagues" element={
+                <ErrorBoundary fallback={RouteErrorFallback}>
+                  <Leagues />
+                </ErrorBoundary>
+              } />
+              <Route path="/leagues/:id" element={
+                <ErrorBoundary fallback={RouteErrorFallback}>
+                  <LeagueDetail />
+                </ErrorBoundary>
+              } />
+              <Route path="/chefs" element={
+                <ErrorBoundary fallback={RouteErrorFallback}>
+                  <ChefRoster />
+                </ErrorBoundary>
+              } />
+              <Route path="/schedule" element={
+                <ErrorBoundary fallback={RouteErrorFallback}>
+                  <Schedule />
+                </ErrorBoundary>
+              } />
+              <Route path="/settings" element={
+                <ErrorBoundary fallback={RouteErrorFallback}>
+                  <Settings />
+                </ErrorBoundary>
+              } />
+            </Route>
+            
+            {/* 404 route */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+      )}
     </ErrorBoundary>
   );
-};
+}
 
 export default App;

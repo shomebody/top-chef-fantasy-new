@@ -1,10 +1,11 @@
-// client/vite.config.js
-import { defineConfig } from 'vite';
+// @ts-check
 import react from '@vitejs/plugin-react';
-import path from 'path';
 import fs from 'fs';
+import path from 'path';
+import { defineConfig } from 'vite';
 
-export default defineConfig(({ mode }) => {
+// Type-safe configuration function
+export default defineConfig(/** @type {import('vite').ConfigEnv} */ ({ mode }) => {
   const env = {
     VITE_BACKEND_PORT: process.env.VITE_BACKEND_PORT || '5000',
   };
@@ -17,12 +18,17 @@ export default defineConfig(({ mode }) => {
     backendPort = env.VITE_BACKEND_PORT;
   }
 
-  return {
+  /** @type {import('vite').UserConfig} */
+  const config = {
     plugins: [react()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
       },
+      extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'] // Explicitly define extensions
+    },
+    css: {
+      postcss: './postcss.config.cjs',
     },
     server: {
       port: 5173,
@@ -36,6 +42,9 @@ export default defineConfig(({ mode }) => {
           ws: true,
         },
       },
+      hmr: {
+        overlay: true // Enable error overlay for development
+      }
     },
     esbuild: {
       target: 'es2020',
@@ -45,9 +54,10 @@ export default defineConfig(({ mode }) => {
       cssTarget: 'chrome80',
       outDir: 'dist',
       minify: 'terser',
+      sourcemap: true, // Enable source maps for production builds
       terserOptions: {
         compress: {
-          drop_console: false,
+          drop_console: mode === 'production', // Only drop console in production
         },
       },
       rollupOptions: {
@@ -55,9 +65,15 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             'react-vendor': ['react', 'react-dom', 'react-router-dom'],
             'ui-vendor': ['@heroicons/react', 'chart.js', 'react-chartjs-2'],
+            'firebase-vendor': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage']
           },
         },
       },
     },
+    define: {
+      __DEBUG__: mode !== 'production',
+    }
   };
+
+  return config;
 });

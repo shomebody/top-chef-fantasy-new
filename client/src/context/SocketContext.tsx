@@ -1,12 +1,17 @@
 // client/src/context/SocketContext.tsx
-import { createContext, useState, useEffect, useMemo, useCallback, useContext, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode
+} from 'react';
 import { io, type Socket } from 'socket.io-client';
-import { useAuth } from '../hooks/useAuth';
 import { auth } from '../config/firebase';
-
-// Singleton socket instance
-let socketInstance: Socket | null = null;
-const hasInitialized = { current: false };
+import { useAuth } from '../hooks/useAuth';
 
 export const EVENTS = {
   CONNECTION: 'connection',
@@ -48,123 +53,153 @@ interface SocketProviderProps {
 }
 
 export function SocketProvider({ children }: SocketProviderProps) {
-  const [socket, setSocket] = useState<Socket | null>(socketInstance);
+  const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const socketRef = useRef<Socket | null>(null);
+  const connectAttempts = useRef(0);
+  
+  // Clean up function for socket connection
+  const cleanupSocket = useCallback(() => {
+    if (socketRef.current) {
+      console.log('Cleaning up socket connection');
+      
+      // Remove all listeners to prevent memory leaks
+      socketRef.current.removeAllListeners();
+      socketRef.current.disconnect();
+      socketRef.current = null;
+      setSocket(null);
+      setConnected(false);
+    }
+  }, []);
 
+  // Initialize socket connection
   useEffect(() => {
-    console.log('SocketProvider effect running, user:', user ? user._id : 'none');
-
-    if (!user?._id) {
-      console.log('No authenticated user, not connecting to socket');
-      if (socketInstance) {
-        console.log('Disconnecting existing socket due to no user');
-        socketInstance.disconnect();
-        socketInstance = null;
-        setSocket(null);
-        setConnected(false);
-        hasInitialized.current = false;
-      }
+    if (!isAuthenticated || !user?._id) {
+      cleanupSocket();
       return;
     }
 
-    if (hasInitialized.current && socketInstance?.connected) {
-      console.log('Socket already connected, skipping initialization');
-      setSocket(socketInstance);
-      setConnected(true);
-      return;
-    }
-
-    const connectSocket = async () => {
+    // Create new socket connection
+    const initSocket = async () => {
       try {
+        // Get a fresh token for authentication
         const firebaseToken = await auth.currentUser?.getIdToken(true);
         if (!firebaseToken) {
-          console.log('No Firebase token available');
+          console.error('No Firebase token available');
           return;
         }
 
-        console.log('Connecting to socket with Firebase token');
+        console.log('Initializing socket connection');
+        
+        // Clean up any existing socket
+        cleanupSocket();
+        
+        // Create new socket instance
         const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
         const newSocket = io(socketUrl, {
           auth: { token: firebaseToken },
           reconnection: true,
           reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
+          transports: ['websocket', 'polling'],
         });
 
+        // Setup event listeners
         newSocket.on('connect', () => {
           console.log('Socket connected');
           setConnected(true);
+          connectAttempts.current = 0;
         });
 
         newSocket.on('disconnect', () => {
           console.log('Socket disconnected');
           setConnected(false);
-          hasInitialized.current = false;
         });
 
         newSocket.on('connect_error', (error) => {
-          console.error('Socket connection failed:', error);
-          setConnected(false);
+          console.error('Socket connection error:', error);
+          
+          // Implement exponential backoff for reconnection
+          connectAttempts.current += 1;
+          if (connectAttempts.current > 5) {
+            console.log('Max reconnection attempts reached');
+            cleanupSocket();
+          }
         });
 
-        socketInstance = newSocket;
+        // Store the socket in ref and state
+        socketRef.current = newSocket;
         setSocket(newSocket);
-        hasInitialized.current = true;
       } catch (err) {
-        console.error('Error connecting socket:', err);
+        console.error('Error initializing socket:', err);
       }
     };
 
-    connectSocket();
+    initSocket();
 
-    return () => {
-      // Only clean up on unmount, not on every effect run
-    };
-  }, [user?._id]);
+    // Cleanup on unmount or when authentication changes
+    return cleanupSocket;
+  }, [isAuthenticated, user?._id, cleanupSocket]);
 
+  // Token refresh handler
   useEffect(() => {
-    return () => {
-      if (socketInstance && !user?._id) {
-        console.log('Disconnecting socket on unmount');
-        socketInstance.disconnect();
-        socketInstance = null;
-        setSocket(null);
-        setConnected(false);
-        hasInitialized.current = false;
+    if (!isAuthenticated || !socketRef.current) return;
+    
+    // Set up a token refresh interval
+    const tokenRefreshInterval = setInterval(async () => {
+      try {
+        const freshToken = await auth.currentUser?.getIdToken(true);
+        if (freshToken && socketRef.current) {
+          // Emit a token refresh event (server needs to implement this)
+          socketRef.current.emit('token_refresh', { token: freshToken });
+        }
+      } catch (err) {
+        console.error('Token refresh error:', err);
       }
+    }, 55 * 60 * 1000); // Refresh token every 55 minutes (tokens expire after 60 min)
+    
+    return () => {
+      clearInterval(tokenRefreshInterval);
     };
-  }, []); // Separate cleanup effect with no dependencies
+  }, [isAuthenticated]);
 
+  // Socket actions
   const joinLeague = useCallback((leagueId: string) => {
-    if (socket && connected) {
+    if (socketRef.current && connected) {
       console.log(`Joining league socket: ${leagueId}`);
-      socket.emit(EVENTS.JOIN_LEAGUE, { leagueId });
+      socketRef.current.emit(EVENTS.JOIN_LEAGUE, { leagueId });
+    } else {
+      console.warn('Socket not connected - cannot join league');
     }
-  }, [socket, connected]);
+  }, [connected]);
 
   const leaveLeague = useCallback((leagueId: string) => {
-    if (socket && connected) {
+    if (socketRef.current && connected) {
       console.log(`Leaving league socket: ${leagueId}`);
-      socket.emit(EVENTS.LEAVE_LEAGUE, { leagueId });
+      socketRef.current.emit(EVENTS.LEAVE_LEAGUE, { leagueId });
     }
-  }, [socket, connected]);
+  }, [connected]);
 
   const sendMessage = useCallback((message: any) => {
-    if (socket && connected) {
+    if (socketRef.current && connected) {
       console.log('Sending message via socket');
-      socket.emit(EVENTS.SEND_MESSAGE, message);
+      socketRef.current.emit(EVENTS.SEND_MESSAGE, message);
+    } else {
+      console.warn('Socket not connected - cannot send message');
     }
-  }, [socket, connected]);
+  }, [connected]);
 
   const sendTyping = useCallback((leagueId: string) => {
-    if (socket && connected) {
-      socket.emit(EVENTS.USER_TYPING, { leagueId });
+    if (socketRef.current && connected) {
+      socketRef.current.emit(EVENTS.USER_TYPING, { leagueId });
     }
-  }, [socket, connected]);
+  }, [connected]);
 
+  // Create context value with memoization
   const value = useMemo(
     () => ({
-      socket,
+      socket: socketRef.current,
       connected,
       EVENTS,
       joinLeague,
