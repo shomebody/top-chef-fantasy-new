@@ -18,7 +18,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const MainLayout = lazy(() => import('./layouts/MainLayout'));
 const AuthLayout = lazy(() => import('./layouts/AuthLayout'));
-
+//dklfjsdlfjkas
 // Fallback component for route-level errors - change to a function instead of component
 const routeErrorFallback = (error: Error, resetError: () => void) => (
   <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
