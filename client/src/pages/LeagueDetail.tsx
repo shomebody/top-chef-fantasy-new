@@ -1,4 +1,4 @@
-import React, { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
