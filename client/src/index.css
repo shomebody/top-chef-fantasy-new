@@ -1,8 +1,67 @@
+@import 'tailwindcss';
+@import 'tailwindcss' layer(base);
+
 @config "../tailwind.config.js";
-@import "tailwindcss";
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+
+/* Custom utility classes */
+@utility btn {
+  /* Button base */
+  @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed;
+}
+@utility btn-primary {
+  /* Button variants */
+  @apply bg-primary-600 hover:bg-primary-700 text-white shadow-sm;
+}
+@utility btn-secondary {
+  @apply bg-gray-100 hover:bg-gray-200 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200;
+}
+@utility btn-outline {
+  @apply border border-gray-300 hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-800 dark:text-gray-300;
+}
+@utility btn-danger {
+  @apply bg-red-600 hover:bg-red-700 text-white;
+}
+@utility btn-sm {
+  /* Button sizes */
+  @apply px-3 py-1.5 text-sm;
+}
+@utility btn-lg {
+  @apply px-6 py-3 text-lg;
+}
+@utility card {
+  /* Card components */
+  @apply bg-white dark:bg-gray-800 rounded-xl shadow-card transition-all duration-200;
+}
+@utility card-hover {
+  @apply hover:shadow-card-hover hover:-translate-y-1;
+}
+@utility input {
+  /* Form elements */
+  @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed;
+}
+@utility input-error {
+  @apply border-red-500 focus:ring-red-500;
+}
+@utility error-message {
+  @apply text-sm text-red-600 dark:text-red-400 mt-1;
+}
+@utility label {
+  @apply block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300;
+}
+
+/* Page transitions */
+@utility page-enter {
+  @apply opacity-0;
+}
+@utility page-enter-active {
+  @apply opacity-100 transition-opacity duration-300;
+}
+@utility page-exit {
+  @apply opacity-100;
+}
+@utility page-exit-active {
+  @apply opacity-0 transition-opacity duration-200;
+}
 
 /* Base styles */
 @layer base {
@@ -16,84 +75,5 @@
   /* Accessibility focus styles */
   :focus-visible {
     @apply outline-none ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900;
-  }
-}
-
-/* Custom utility classes */
-@layer components {
-  /* Button base */
-  .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-  
-  /* Button variants */
-  .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white shadow-sm;
-  }
-  
-  .btn-secondary {
-    @apply bg-gray-100 hover:bg-gray-200 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200;
-  }
-  
-  .btn-outline {
-    @apply border border-gray-300 hover:bg-gray-50 text-gray-700 dark:border-gray-600 dark:hover:bg-gray-800 dark:text-gray-300;
-  }
-  
-  .btn-danger {
-    @apply bg-red-600 hover:bg-red-700 text-white;
-  }
-  
-  /* Button sizes */
-  .btn-sm {
-    @apply px-3 py-1.5 text-sm;
-  }
-  
-  .btn-lg {
-    @apply px-6 py-3 text-lg;
-  }
-  
-  /* Card components */
-  .card {
-    @apply bg-white dark:bg-gray-800 rounded-xl shadow-card transition-all duration-200;
-  }
-  
-  .card-hover {
-    @apply hover:shadow-card-hover hover:-translate-y-1;
-  }
-  
-  /* Form elements */
-  .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-  
-  .input-error {
-    @apply border-red-500 focus:ring-red-500;
-  }
-  
-  .error-message {
-    @apply text-sm text-red-600 dark:text-red-400 mt-1;
-  }
-  
-  .label {
-    @apply block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300;
-  }
-}
-
-/* Page transitions */
-@layer utilities {
-  .page-enter {
-    @apply opacity-0;
-  }
-  
-  .page-enter-active {
-    @apply opacity-100 transition-opacity duration-300;
-  }
-  
-  .page-exit {
-    @apply opacity-100;
-  }
-  
-  .page-exit-active {
-    @apply opacity-0 transition-opacity duration-200;
   }
 }
