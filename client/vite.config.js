@@ -1,3 +1,4 @@
+/* eslint-env node */
 import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
@@ -24,9 +25,6 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, './src'),
       },
     },
-    css: {
-      postcss: './postcss.config.cjs',
-    },
     server: {
       port: 5173,
       proxy: {
@@ -42,11 +40,11 @@ export default defineConfig(({ mode }) => {
       hmr: { overlay: true },
     },
     build: {
-      target: 'es2022', // Updated from es2020
+      target: 'es2022',
       cssTarget: 'chrome80',
       outDir: 'dist',
-      minify: 'esbuild', // Switched from terser for faster builds
-      sourcemap: mode !== 'production', // Sourcemaps only in dev/test
+      minify: 'esbuild',
+      sourcemap: mode !== 'production',
       rollupOptions: {
         output: {
           manualChunks: {
@@ -58,7 +56,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     define: {
-      'process.env.NODE_ENV': JSON.stringify(mode), // Standardizes env access
+      'process.env.NODE_ENV': JSON.stringify(mode),
       __DEBUG__: mode !== 'production',
     },
   };
