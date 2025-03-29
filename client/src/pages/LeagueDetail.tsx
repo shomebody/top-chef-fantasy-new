@@ -4,8 +4,9 @@ import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { useAuth } from '../hooks/useAuth';
 import { useChat } from '../hooks/useChat';
-import { useLeague } from '../hooks/useLeague';
+import { useLeague, type League } from '../hooks/useLeague';
 
+// Update the League interface to include all properties from errors
 interface League {
   _id: string;
   name: string;
@@ -42,14 +43,13 @@ interface ChatMessage {
     name: string;
   };
   createdAt: string;
+  type?: string;
 }
 
-interface TypingUser {
-  userId: string;
-  username: string;
-}
-
-const LeagueDetail: React.FC = () => {
+/**
+ * League Detail page component - displays information and allows interaction with a specific league
+ */
+function LeagueDetail() {
   const { id } = useParams<{ id: string }>();
   const {
     leagues = [],
@@ -117,6 +117,7 @@ const LeagueDetail: React.FC = () => {
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
+          aria-label="Loading"
         >
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path
@@ -433,72 +434,73 @@ const LeagueDetail: React.FC = () => {
             </div>
           )}
 
-// Modify the chat tab in LeagueDetail.tsx
-{activeTab === 'chat' && (
-  <div className="space-y-6">
-    {chatError && (
-      <div className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 p-3 rounded-lg">
-        {chatError}
-      </div>
-    )}
-    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 h-96 overflow-y-auto flex flex-col space-y-4">
-      {messages.length > 0 ? (
-        messages.map((message: ChatMessage) => (
-          <div key={message._id || Math.random().toString()} className="flex flex-col">
-            <div className="flex items-center space-x-2">
-              <div className="font-medium text-gray-900 dark:text-white">
-                {message.sender?.name || 'Unknown'}
+          {/* Chat tab */}
+          {activeTab === 'chat' && (
+            <div className="space-y-6">
+              {chatError && (
+                <div className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 p-3 rounded-lg">
+                  {chatError}
+                </div>
+              )}
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 h-96 overflow-y-auto flex flex-col space-y-4">
+                {messages.length > 0 ? (
+                  messages.map((message: ChatMessage) => (
+                    <div key={message._id || Math.random().toString()} className="flex flex-col">
+                      <div className="flex items-center space-x-2">
+                        <div className="font-medium text-gray-900 dark:text-white">
+                          {message.sender?.name || 'Unknown'}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {message.createdAt ? new Date(message.createdAt).toLocaleTimeString() : ''}
+                        </div>
+                      </div>
+                      <div className="pl-6 text-gray-700 dark:text-gray-300">{message.content || ''}</div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                    <p>No messages yet. Start the conversation!</p>
+                    {/* Let the user know that chat might be limited during development */}
+                    <p className="text-xs mt-2">(Chat functionality might be limited during development)</p>
+                  </div>
+                )}
+                {typingUsers.length > 0 && (
+                  <div className="text-gray-500 dark:text-gray-400 text-sm">
+                    {typingUsers.length === 1
+                      ? `${typingUsers[0].username || 'Someone'} is typing...`
+                      : `${typingUsers.length} people are typing...`}
+                  </div>
+                )}
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
-                {message.createdAt ? new Date(message.createdAt).toLocaleTimeString() : ''}
-              </div>
+              <form onSubmit={handleSendMessage} className="flex gap-2">
+                <input
+                  type="text"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Type a message..."
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                />
+                <Button type="submit" variant="primary" disabled={!chatInput.trim()}>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </Button>
+              </form>
             </div>
-            <div className="pl-6 text-gray-700 dark:text-gray-300">{message.content || ''}</div>
-          </div>
-        ))
-      ) : (
-        <div className="text-center py-6 text-gray-500 dark:text-gray-400">
-          <p>No messages yet. Start the conversation!</p>
-          <p className="text-xs mt-2">(Chat functionality might be limited during development)</p>
-        </div>
-      )}
-      {typingUsers.length > 0 && (
-        <div className="text-gray-500 dark:text-gray-400 text-sm">
-          {typingUsers.length === 1
-            ? `${typingUsers[0].username || 'Someone'} is typing...`
-            : `${typingUsers.length} people are typing...`}
-        </div>
-      )}
-    </div>
-    <form onSubmit={handleSendMessage} className="flex gap-2">
-      <input
-        type="text"
-        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-        placeholder="Type a message..."
-        value={chatInput}
-        onChange={(e) => setChatInput(e.target.value)}
-      />
-      <Button type="submit" variant="primary" disabled={!chatInput.trim() || loading}>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-5 w-5"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path
-            fillRule="evenodd"
-            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z"
-            clipRule="evenodd"
-          />
-        </svg>
-      </Button>
-    </form>
-  </div>
-)}
+          )}
         </div>
       </div>
     </div>
   );
-};
+}
 
 export default LeagueDetail;

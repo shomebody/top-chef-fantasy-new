@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // Keep only useNavigate, remove Link
-// Only import what's actually used in the JSX
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
@@ -13,11 +12,12 @@ interface NewLeague {
   maxRosterSize: number;
 }
 
-// Remove FormErrors interface since it's not used
-
+/**
+ * Leagues page component for managing fantasy leagues
+ */
 function Leagues() {
   const navigate = useNavigate();
-  const { leagues, loading, error, fetchUserLeagues, createLeague, joinLeagueWithCode } = useLeague();
+  const { leagues = [], loading = false, error = null, fetchUserLeagues, createLeague, joinLeagueWithCode } = useLeague();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [joinCode, setJoinCode] = useState('');
@@ -34,7 +34,7 @@ function Leagues() {
     fetchUserLeagues();
   }, [fetchUserLeagues]);
 
-  const handleCreateSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError('');
     
@@ -53,8 +53,12 @@ function Leagues() {
         maxMembers: 10,
         maxRosterSize: 5
       });
-      // Navigate to the league detail page
-      navigate(`/leagues/${league._id}`);
+      
+      // Navigate to the created league
+      if (league && league._id) {
+        console.log(`Navigating to league detail: ${league._id}`);
+        navigate(`/leagues/${league._id}`);
+      }
     } catch (err) {
       console.error('Error creating league:', err);
       setFormError(typeof err === 'object' && err !== null && 'message' in err 
@@ -65,7 +69,7 @@ function Leagues() {
     }
   };
   
-  const handleJoinSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleJoinSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError('');
     
@@ -79,8 +83,12 @@ function Leagues() {
       const league = await joinLeagueWithCode(joinCode);
       setIsJoinModalOpen(false);
       setJoinCode('');
-      // Navigate to the league detail page
-      navigate(`/leagues/${league._id}`);
+      
+      // Navigate to the joined league
+      if (league && league._id) {
+        console.log(`Navigating to joined league: ${league._id}`);
+        navigate(`/leagues/${league._id}`);
+      }
     } catch (err) {
       console.error('Error joining league:', err);
       setFormError(typeof err === 'object' && err !== null && 'message' in err 
@@ -91,7 +99,7 @@ function Leagues() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     
     if (name === 'season' || name === 'maxMembers' || name === 'maxRosterSize') {
@@ -183,7 +191,7 @@ function Leagues() {
                 <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700/30 rounded-b-xl">
                   <div className="flex justify-between items-center">
                     <div className="text-sm text-gray-600 dark:text-gray-400">
-                      Created {new Date(league.createdAt).toLocaleDateString()}
+                      Created {new Date(league.createdAt as string).toLocaleDateString()}
                     </div>
                     <div className="text-sm font-medium text-primary-600 dark:text-primary-400">
                       View League &rarr;
@@ -219,6 +227,7 @@ function Leagues() {
         </div>
       )}
       
+      {/* Create League Modal */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md">
@@ -228,6 +237,7 @@ function Leagues() {
                 <button
                   onClick={() => setIsCreateModalOpen(false)}
                   className="p-1 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
+                  aria-label="Close modal"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -257,23 +267,23 @@ function Leagues() {
                     id="season"
                     name="season"
                     type="number"
-                    min="1"
                     placeholder="Season number"
                     value={newLeague.season.toString()}
                     onChange={handleInputChange}
                     required
+                    min={1}
                   />
                   <Input
                     label="Max Members"
                     id="maxMembers"
                     name="maxMembers"
                     type="number"
-                    min="2"
-                    max="20"
                     placeholder="Maximum members"
                     value={newLeague.maxMembers.toString()}
                     onChange={handleInputChange}
                     required
+                    min={2}
+                    max={20}
                   />
                 </div>
                 <Input
@@ -281,12 +291,12 @@ function Leagues() {
                   id="maxRosterSize"
                   name="maxRosterSize"
                   type="number"
-                  min="1"
-                  max="10"
                   placeholder="Chefs per roster"
                   value={newLeague.maxRosterSize.toString()}
                   onChange={handleInputChange}
                   required
+                  min={1}
+                  max={10}
                 />
                 <div className="mt-6 flex justify-end space-x-3">
                   <Button
@@ -310,6 +320,7 @@ function Leagues() {
         </div>
       )}
       
+      {/* Join League Modal */}
       {isJoinModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md">
@@ -319,6 +330,7 @@ function Leagues() {
                 <button
                   onClick={() => setIsJoinModalOpen(false)}
                   className="p-1 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
+                  aria-label="Close modal"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

@@ -1,23 +1,16 @@
-import { ChangeEvent, forwardRef } from 'react';
+import { forwardRef, type InputHTMLAttributes } from 'react';
 
-interface InputProps {
+// Extend the HTML input attributes to include our custom props
+interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'className'> {
   label?: string;
   error?: string;
-  type?: string;
-  id?: string;
-  name?: string;
-  placeholder?: string;
-  required?: boolean;
-  disabled?: boolean;
   helper?: string;
   className?: string;
-  onChange?: (e: ChangeEvent<HTMLInputElement>) => void;
-  // Add any other props that might be needed
-  value?: string | number;
-  min?: string | number; // Add these properties
-  max?: string | number; // Add these properties
 }
 
+/**
+ * Input component for form fields
+ */
 const Input = forwardRef<HTMLInputElement, InputProps>(({
   label,
   error,
@@ -29,7 +22,6 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
   disabled = false,
   helper,
   className = '',
-  onChange,
   ...rest
 }, ref) => {
   const inputClasses = `
@@ -56,17 +48,29 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
         placeholder={placeholder}
         required={required}
         disabled={disabled}
-        onChange={onChange}
         className={inputClasses}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${id}-error` : helper ? `${id}-helper` : undefined}
         {...rest}
       />
       
       {helper && !error && (
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{helper}</p>
+        <p 
+          id={`${id}-helper`}
+          className="mt-1 text-sm text-gray-500 dark:text-gray-400"
+        >
+          {helper}
+        </p>
       )}
       
       {error && (
-        <p className="mt-1 text-sm text-red-500">{error}</p>
+        <p 
+          id={`${id}-error`}
+          className="mt-1 text-sm text-red-500"
+          role="alert"
+        >
+          {error}
+        </p>
       )}
     </div>
   );

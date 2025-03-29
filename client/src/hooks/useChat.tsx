@@ -1,4 +1,3 @@
-// client/src/hooks/useChat.tsx
 import { useCallback, useEffect, useState } from 'react';
 import api from '../services/api';
 import { useAuth } from './useAuth';
@@ -39,6 +38,10 @@ interface UseChatReturn {
   refreshMessages: () => Promise<void>;
 }
 
+/**
+ * Hook for managing chat functionality for a given league
+ * @param leagueId - ID of the league to chat in
+ */
 export function useChat(leagueId?: string): UseChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -58,19 +61,19 @@ export function useChat(leagueId?: string): UseChatReturn {
       
       try {
         const response = await api.get(`/messages/${leagueId}`);
-        setMessages(response.data.reverse()); // Newest messages at the bottom
+        const messageData = response.data || [];
+        setMessages(Array.isArray(messageData) ? messageData.reverse() : []); // Newest messages at the bottom
         setError(null);
-        console.log(`Loaded ${response.data.length} messages`);
-      } catch (apiErr) {
+        console.log(`Loaded ${messageData.length || 0} messages`);
+      } catch (apiErr: any) {
         // Handle 404 gracefully - API endpoint might not be implemented yet
-        if (apiErr.status === 404) {
+        if (apiErr.response?.status === 404) {
           console.warn(`Message API endpoint not available yet for league: ${leagueId}`);
           setMessages([]); // Set empty messages instead of failing
           setError(null); // Don't set error for missing API endpoint
         } else {
           console.error('Error fetching messages:', apiErr);
-          setError(apiErr instanceof Error ? apiErr.message : 
-            (apiErr as any)?.response?.data?.message ?? 'Failed to load chat history');
+          setError(apiErr?.message || 'Failed to load chat history');
         }
       }
     } finally {
@@ -136,7 +139,9 @@ export function useChat(leagueId?: string): UseChatReturn {
   useEffect(() => {
     if (!leagueId) return;
 
-    fetchMessages();
+    fetchMessages().catch(err => {
+      console.warn('Error in initial message fetch:', err);
+    });
 
     if (socket && connected) {
       console.log(`Setting up chat socket for league: ${leagueId}`);
@@ -174,50 +179,53 @@ export function useChat(leagueId?: string): UseChatReturn {
     leaveLeague
   ]);
 
-  // Send a new message
-  const sendMessage = useCallback(
-    async (content: string, type: string = 'text') => {
-      if (!content || !leagueId || !user) return;
+ // Send a new message
+ const sendMessage = useCallback(
+  async (content: string, type: string = 'text') => {
+    if (!content || !leagueId || !user) return;
 
-      console.log(`Sending message in league: ${leagueId}`);
-      const message: ChatMessage = {
-        _id: Date.now().toString(), // Add a temporary client-side ID
-        leagueId,
-        content,
-        type: type as 'text' | 'system' | 'image',
-        sender: { 
-          _id: user._id, 
-          name: user.name ?? 'Unknown'
-        },
-        createdAt: new Date().toISOString(),
-      };
+    console.log(`Sending message in league: ${leagueId}`);
+    const message: ChatMessage = {
+      _id: Date.now().toString(), // Add a temporary client-side ID
+      leagueId,
+      content,
+      type: type as 'text' | 'system' | 'image',
+      sender: { 
+        _id: user._id, 
+        name: user.name ?? 'Unknown'
+      },
+      createdAt: new Date().toISOString(),
+    };
 
-      try {
-        socketSendMessage(message);
-      } catch (err) {
-        console.error('Error sending message:', err);
+    try {
+      socketSendMessage(message);
+    } catch (err) {
+      console.error('Error sending message:', err);
+      // Only set error if it's not a 404 (missing API endpoint)
+      if (!(err instanceof Error && err.message.includes('404'))) {
         setError('Failed to send message');
       }
-    },
-    [leagueId, socketSendMessage, user]
-  );
-
-  // Send typing indicator
-  const sendTypingIndicator = useCallback(() => {
-    if (leagueId && connected) {
-      sendTyping(leagueId);
     }
-  }, [leagueId, sendTyping, connected]);
+  },
+  [leagueId, socketSendMessage, user]
+);
 
-  return {
-    messages,
-    loading,
-    error,
-    typingUsers,
-    sendMessage,
-    sendTypingIndicator,
-    refreshMessages: fetchMessages,
-  };
+// Send typing indicator
+const sendTypingIndicator = useCallback(() => {
+  if (leagueId && connected) {
+    sendTyping(leagueId);
+  }
+}, [leagueId, sendTyping, connected]);
+
+return {
+  messages,
+  loading,
+  error,
+  typingUsers,
+  sendMessage,
+  sendTypingIndicator,
+  refreshMessages: fetchMessages,
+};
 }
 
 export default useChat;

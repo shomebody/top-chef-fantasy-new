@@ -18,6 +18,14 @@ export default [
         ecmaVersion: 'latest',
         sourceType: 'module',
         project: './tsconfig.json'
+      },
+      globals: {
+        console: 'readonly',
+        window: 'readonly',
+        document: 'readonly',
+        navigator: 'readonly',
+        alert: 'readonly',
+        globalThis: 'readonly'
       }
     },
     plugins: {
@@ -25,7 +33,11 @@ export default [
     },
     rules: {
       ...typescriptEslint.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }]
+      '@typescript-eslint/no-unused-vars': ['error', { 
+        argsIgnorePattern: '^_', 
+        varsIgnorePattern: '^_',
+        ignoreRestSiblings: true 
+      }]
     }
   },
 
@@ -37,12 +49,15 @@ export default [
         ecmaFeatures: { jsx: true }
       },
       globals: {
-        browser: true,
-        es2021: true
+        console: 'readonly',
+        window: 'readonly',
+        document: 'readonly',
+        navigator: 'readonly',
+        alert: 'readonly'
       }
     },
     plugins: {
-      react: react,
+      react,
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh
     },
@@ -53,10 +68,11 @@ export default [
     },
     rules: {
       ...react.configs.recommended.rules,
-      'react/react-in-jsx-scope': 'off', // Key fix
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': 'warn',
-      'react/prop-types': 'off'
+      'react/prop-types': 'off', // Disable if using TypeScript
+      'react/react-in-jsx-scope': 'off', // React 19 doesn't require React import for JSX
+      'react/no-unknown-property': ['error', { ignore: ['jsx'] }]
     }
   }
 ];
