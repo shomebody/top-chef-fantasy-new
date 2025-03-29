@@ -18,8 +18,8 @@ const Settings = lazy(() => import('./pages/Settings'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const MainLayout = lazy(() => import('./layouts/MainLayout'));
 const AuthLayout = lazy(() => import('./layouts/AuthLayout'));
-//dklfjsdlfjkas
-// Fallback component for route-level errors - change to a function instead of component
+
+// Fallback component for route-level errors
 const routeErrorFallback = (error: Error, resetError: () => void) => (
   <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full">
@@ -39,7 +39,7 @@ const routeErrorFallback = (error: Error, resetError: () => void) => (
   </div>
 );
 
-const App: React.FC = () => {
+function App() {
   const { isAuthenticated, loading, error } = useAuth();
   
   useEffect(() => {
@@ -106,36 +106,38 @@ const App: React.FC = () => {
             
             {/* Protected routes with MainLayout */}
             <Route element={<ProtectedRoute />}>
-              <Route path="/" element={
-                <ErrorBoundary fallback={routeErrorFallback}>
-                  <Dashboard />
-                </ErrorBoundary>
-              } />
-              <Route path="/leagues" element={
-                <ErrorBoundary fallback={routeErrorFallback}>
-                  <Leagues />
-                </ErrorBoundary>
-              } />
-              <Route path="/leagues/:id" element={
-                <ErrorBoundary fallback={routeErrorFallback}>
-                  <LeagueDetail />
-                </ErrorBoundary>
-              } />
-              <Route path="/chefs" element={
-                <ErrorBoundary fallback={routeErrorFallback}>
-                  <ChefRoster />
-                </ErrorBoundary>
-              } />
-              <Route path="/schedule" element={
-                <ErrorBoundary fallback={routeErrorFallback}>
-                  <Schedule />
-                </ErrorBoundary>
-              } />
-              <Route path="/settings" element={
-                <ErrorBoundary fallback={routeErrorFallback}>
-                  <Settings />
-                </ErrorBoundary>
-              } />
+              <Route element={<MainLayout />}>  {/* Wrap all protected routes with MainLayout */}
+                <Route path="/" element={
+                  <ErrorBoundary fallback={routeErrorFallback}>
+                    <Dashboard />
+                  </ErrorBoundary>
+                } />
+                <Route path="/leagues" element={
+                  <ErrorBoundary fallback={routeErrorFallback}>
+                    <Leagues />
+                  </ErrorBoundary>
+                } />
+                <Route path="/leagues/:id" element={
+                  <ErrorBoundary fallback={routeErrorFallback}>
+                    <LeagueDetail />
+                  </ErrorBoundary>
+                } />
+                <Route path="/chefs" element={
+                  <ErrorBoundary fallback={routeErrorFallback}>
+                    <ChefRoster />
+                  </ErrorBoundary>
+                } />
+                <Route path="/schedule" element={
+                  <ErrorBoundary fallback={routeErrorFallback}>
+                    <Schedule />
+                  </ErrorBoundary>
+                } />
+                <Route path="/settings" element={
+                  <ErrorBoundary fallback={routeErrorFallback}>
+                    <Settings />
+                  </ErrorBoundary>
+                } />
+              </Route>
             </Route>
             
             {/* 404 route */}
@@ -145,6 +147,6 @@ const App: React.FC = () => {
       )}
     </ErrorBoundary>
   );
-};
+}
 
 export default App;

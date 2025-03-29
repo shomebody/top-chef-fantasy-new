@@ -53,9 +53,10 @@ export default [
     },
     rules: {
       ...react.configs.recommended.rules,
+      'react/react-in-jsx-scope': 'off', // Key fix
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': 'warn',
-      'react/prop-types': 'off' // Disable if using TypeScript
+      'react/prop-types': 'off'
     }
   }
 ];

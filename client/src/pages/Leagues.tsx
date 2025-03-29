@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // Keep only useNavigate, remove Link
+// Only import what's actually used in the JSX
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
@@ -12,23 +13,22 @@ interface NewLeague {
   maxRosterSize: number;
 }
 
-interface FormErrors {
-  [key: string]: string;
-}
+// Remove FormErrors interface since it's not used
 
-const Leagues: React.FC = () => {
-  const { leagues = [], loading = false, error = null, fetchUserLeagues, createLeague, joinLeagueWithCode } = useLeague();
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
-  const [isJoinModalOpen, setIsJoinModalOpen] = useState<boolean>(false);
-  const [joinCode, setJoinCode] = useState<string>('');
+function Leagues() {
+  const navigate = useNavigate();
+  const { leagues, loading, error, fetchUserLeagues, createLeague, joinLeagueWithCode } = useLeague();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
   const [newLeague, setNewLeague] = useState<NewLeague>({
     name: '',
     season: 22,
     maxMembers: 10,
     maxRosterSize: 5
   });
-  const [formError, setFormError] = useState<string>('');
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [formError, setFormError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchUserLeagues();
@@ -45,7 +45,7 @@ const Leagues: React.FC = () => {
     
     try {
       setIsSubmitting(true);
-      await createLeague(newLeague);
+      const league = await createLeague(newLeague);
       setIsCreateModalOpen(false);
       setNewLeague({
         name: '',
@@ -53,9 +53,13 @@ const Leagues: React.FC = () => {
         maxMembers: 10,
         maxRosterSize: 5
       });
-    } catch (err: any) {
+      // Navigate to the league detail page
+      navigate(`/leagues/${league._id}`);
+    } catch (err) {
       console.error('Error creating league:', err);
-      setFormError(err.response?.data?.message || 'Failed to create league');
+      setFormError(typeof err === 'object' && err !== null && 'message' in err 
+        ? String(err.message) 
+        : 'Failed to create league');
     } finally {
       setIsSubmitting(false);
     }
@@ -72,12 +76,16 @@ const Leagues: React.FC = () => {
     
     try {
       setIsSubmitting(true);
-      await joinLeagueWithCode(joinCode);
+      const league = await joinLeagueWithCode(joinCode);
       setIsJoinModalOpen(false);
       setJoinCode('');
-    } catch (err: any) {
+      // Navigate to the league detail page
+      navigate(`/leagues/${league._id}`);
+    } catch (err) {
       console.error('Error joining league:', err);
-      setFormError(err.response?.data?.message || 'Failed to join league');
+      setFormError(typeof err === 'object' && err !== null && 'message' in err 
+        ? String(err.message) 
+        : 'Failed to join league');
     } finally {
       setIsSubmitting(false);
     }
@@ -139,8 +147,9 @@ const Leagues: React.FC = () => {
               key={league._id}
               className="card-hover"
               padding="none"
+              onClick={() => navigate(`/leagues/${league._id}`)}
             >
-              <Link to={`/leagues/${league._id}`} className="block">
+              <div className="block">
                 <div className="p-6 border-b border-gray-200 dark:border-gray-700">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                     {league.name}
@@ -181,7 +190,7 @@ const Leagues: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </Link>
+              </div>
             </Card>
           ))}
         </div>
@@ -355,6 +364,6 @@ const Leagues: React.FC = () => {
       )}
     </div>
   );
-};
+}
 
 export default Leagues;
