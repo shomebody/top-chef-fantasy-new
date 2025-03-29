@@ -87,62 +87,62 @@ function App() {
         <LoadingScreen />
       ) : (
         <Suspense fallback={<LoadingScreen />}>
-          <Routes>
-            {/* Auth routes */}
-            <Route element={<AuthLayout />}>
-              <Route path="/login" element={
-                isAuthenticated ? <Navigate to="/" /> : 
-                <ErrorBoundary fallback={routeErrorFallback}>
-                  <Login />
-                </ErrorBoundary>
-              } />
-              <Route path="/register" element={
-                isAuthenticated ? <Navigate to="/" /> : 
-                <ErrorBoundary fallback={routeErrorFallback}>
-                  <Register />
-                </ErrorBoundary>
-              } />
-            </Route>
-            
-            {/* Protected routes with MainLayout */}
-            <Route element={<ProtectedRoute />}>
-              <Route element={<MainLayout />}>  {/* Wrap all protected routes with MainLayout */}
-                <Route path="/" element={
-                  <ErrorBoundary fallback={routeErrorFallback}>
-                    <Dashboard />
-                  </ErrorBoundary>
-                } />
-                <Route path="/leagues" element={
-                  <ErrorBoundary fallback={routeErrorFallback}>
-                    <Leagues />
-                  </ErrorBoundary>
-                } />
-                <Route path="/leagues/:id" element={
-                  <ErrorBoundary fallback={routeErrorFallback}>
-                    <LeagueDetail />
-                  </ErrorBoundary>
-                } />
-                <Route path="/chefs" element={
-                  <ErrorBoundary fallback={routeErrorFallback}>
-                    <ChefRoster />
-                  </ErrorBoundary>
-                } />
-                <Route path="/schedule" element={
-                  <ErrorBoundary fallback={routeErrorFallback}>
-                    <Schedule />
-                  </ErrorBoundary>
-                } />
-                <Route path="/settings" element={
-                  <ErrorBoundary fallback={routeErrorFallback}>
-                    <Settings />
-                  </ErrorBoundary>
-                } />
-              </Route>
-            </Route>
-            
-            {/* 404 route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+        <Routes>
+  {/* Auth routes */}
+  <Route element={<AuthLayout />}>
+    <Route path="/login" element={
+      isAuthenticated ? <Navigate to="/" /> : 
+      <ErrorBoundary fallback={routeErrorFallback}>
+        <Login />
+      </ErrorBoundary>
+    } />
+    <Route path="/register" element={
+      isAuthenticated ? <Navigate to="/" /> : 
+      <ErrorBoundary fallback={routeErrorFallback}>
+        <Register />
+      </ErrorBoundary>
+    } />
+  </Route>
+  
+  {/* Protected routes with MainLayout */}
+  <Route element={<ProtectedRoute />}>
+    <Route element={<MainLayout />}>
+      <Route path="/" element={
+        <ErrorBoundary fallback={routeErrorFallback}>
+          <Dashboard />
+        </ErrorBoundary>
+      } />
+      <Route path="/leagues" element={
+        <ErrorBoundary fallback={routeErrorFallback}>
+          <Leagues />
+        </ErrorBoundary>
+      } />
+      <Route path="/leagues/:id" element={
+        <ErrorBoundary fallback={routeErrorFallback}>
+          <LeagueDetail />
+        </ErrorBoundary>
+      } />
+      <Route path="/chefs" element={
+        <ErrorBoundary fallback={routeErrorFallback}>
+          <ChefRoster />
+        </ErrorBoundary>
+      } />
+      <Route path="/schedule" element={
+        <ErrorBoundary fallback={routeErrorFallback}>
+          <Schedule />
+        </ErrorBoundary>
+      } />
+      <Route path="/settings" element={
+        <ErrorBoundary fallback={routeErrorFallback}>
+          <Settings />
+        </ErrorBoundary>
+      } />
+    </Route>
+  </Route>
+  
+  {/* 404 route */}
+  <Route path="*" element={<NotFound />} />
+</Routes>
         </Suspense>
       )}
     </ErrorBoundary>

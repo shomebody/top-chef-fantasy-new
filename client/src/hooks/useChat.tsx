@@ -1,8 +1,8 @@
 // client/src/hooks/useChat.tsx
-import { useState, useEffect, useCallback } from 'react';
-import { useSocket } from './useSocket';
-import { useAuth } from './useAuth';
+import { useCallback, useEffect, useState } from 'react';
 import api from '../services/api';
+import { useAuth } from './useAuth';
+import { useSocket } from './useSocket';
 
 // Define TypeScript interfaces
 interface ChatMessage {
@@ -55,14 +55,24 @@ export function useChat(leagueId?: string): UseChatReturn {
     try {
       console.log(`Fetching messages for league: ${leagueId}`);
       setLoading(true);
-      const response = await api.get(`/messages/${leagueId}`);
-      setMessages(response.data.reverse()); // Newest messages at the bottom
-      setError(null);
-      console.log(`Loaded ${response.data.length} messages`);
-    } catch (err) {
-      console.error('Error fetching messages:', err);
-      setError(err instanceof Error ? err.message : 
-        (err as any)?.response?.data?.message ?? 'Failed to load chat history');
+      
+      try {
+        const response = await api.get(`/messages/${leagueId}`);
+        setMessages(response.data.reverse()); // Newest messages at the bottom
+        setError(null);
+        console.log(`Loaded ${response.data.length} messages`);
+      } catch (apiErr) {
+        // Handle 404 gracefully - API endpoint might not be implemented yet
+        if (apiErr.status === 404) {
+          console.warn(`Message API endpoint not available yet for league: ${leagueId}`);
+          setMessages([]); // Set empty messages instead of failing
+          setError(null); // Don't set error for missing API endpoint
+        } else {
+          console.error('Error fetching messages:', apiErr);
+          setError(apiErr instanceof Error ? apiErr.message : 
+            (apiErr as any)?.response?.data?.message ?? 'Failed to load chat history');
+        }
+      }
     } finally {
       setLoading(false);
     }

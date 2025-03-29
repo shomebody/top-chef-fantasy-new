@@ -1,4 +1,4 @@
-import { forwardRef, ChangeEvent } from 'react';
+import { ChangeEvent, forwardRef } from 'react';
 
 interface InputProps {
   label?: string;
@@ -14,6 +14,8 @@ interface InputProps {
   onChange?: (e: ChangeEvent<HTMLInputElement>) => void;
   // Add any other props that might be needed
   value?: string | number;
+  min?: string | number; // Add these properties
+  max?: string | number; // Add these properties
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(({
